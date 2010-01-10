@@ -1,0 +1,28 @@
+Databasic - MySQL Database Handler
+**********************************
+
+Requirements
+============
+
+	* PHP 5.2.x
+
+Features
+========
+
+    * Creates a persistent connection to a specified database
+    * Can store and connect to multiple databases
+    * Stores the connection within a Singleton instance
+    * Logs queried information and total executed queries
+    * Binds variables to SQL statements; similar to PDO
+    * Cleans all binded data to prevent mysql injection
+    * Fetches data as an object or an associative array
+    * Logs each queries execution time
+    * Has support for a debug mode
+    * Pre-built methods for CREATE TABLE, DELETE, DESCRIBE, DROP, UPDATE, INSERT, SELECT, TRUNCATE and OPTIMIZE
+    * And much more...
+
+Documentation
+=============
+
+	* http://www.milesj.me/resources/script/database-handler
+
