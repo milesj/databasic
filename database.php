@@ -1,21 +1,19 @@
 <?php
 /**
- * database.php
+ * DataBasic - Basic Database Access
  *
  * A wrapper class for accessing, abstracting and manipulating a MySQL database.
  * 
  * @author 		Miles Johnson - www.milesj.me
  * @copyright	Copyright 2006-2009, Miles Johnson, Inc.
  * @license 	http://www.opensource.org/licenses/mit-license.php - Licensed under The MIT License
- * @package     DataBasic - Basic Database Access
- * @version     2.3.2
  * @link		www.milesj.me/resources/script/database-handler
  */
  
 class Database { 
 
 	/**
-	 * Current version: www.milesj.me/files/logs/database-handler
+	 * Current version: www.milesj.me/resources/logs/database-handler
 	 *
 	 * @access public
 	 * @var int
