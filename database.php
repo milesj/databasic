@@ -122,9 +122,8 @@ class Database {
 		if (isset($this->__data[$dataBit]['binds'][':'. $key .':'])) {
 			$key .= count($this->__data[$dataBit]['binds']);
 		}
-		$key = ':'. trim($key, ':') .':';
-		
-		$this->__data[$dataBit]['binds'][$key] = $value;
+        
+		$this->__data[$dataBit]['binds'][':'. trim($key, ':') .':'] = $value;
 		return $key;
 	}
 	
@@ -223,17 +222,14 @@ class Database {
 	 * @return boolean
 	 */
 	public function create($tableName, $schema, $settings = array()) {
-		$defaults = array(
+		$keys = $sql = array();
+		$settings = $settings + array(
 			'engine' 	=> 'InnoDB',
 			'charset'	=> 'utf8',
 			'collate'	=> 'utf8_general_ci',
 			'comment'	=> '',
 			'increment'	=> 1
 		);
-		
-		$keys = $sql = array();
-		$settings = $settings + $defaults;
-		$isDateTime = false;
 		
 		// Build schema
 		if (!empty($schema)) {
@@ -319,7 +315,6 @@ class Database {
 				
 				// Datetime
 				} else if ($data['type'] == 'datetime' || $data['type'] == 'timestamp' || $data['type'] == 'date' || $data['type'] == 'time' || $data['type'] == 'float' || $data['type'] == 'blob') {
-					$isDateTime = ($data['type'] == 'blob') ? false : true;
 					$column .= " ". strtoupper($data['type']);
 					
 				// Year
@@ -544,7 +539,7 @@ class Database {
 		if ($this->__debug === true) {
 			$this->__queries[] = array(
 				'statement' => $sql,
-				'executed'  => (isset($failure)) ? $failure : 'true',
+				'executed'  => isset($failure) ? $failure : 'true',
 				'took'		=> $this->__endLoadTime($dataBit) .' seconds',
 				'affected'	=> $this->getAffected() .' rows'
 			);
@@ -582,7 +577,20 @@ class Database {
 		}
 		
 		return $result;
-	} 
+	}
+
+    /**
+     * Set the fetch type.
+     *
+     * @access public
+     * @param boolean $status
+     * @return void
+     */
+    public function fetchAsObject($status = false) {
+        if (is_bool($status)) {
+            $this->__asObject = $status;
+        }
+    }
 	
 	/**
 	 * Gets the previously affected rows.
@@ -690,13 +698,16 @@ class Database {
 		
 		if (empty($tableName)) {
 			$query = $this->execute('SHOW TABLES', $dataBit);
+
 			while ($table = $this->fetchAll($query)) {  
 				$tableName = $table['Tables_in_'. $this->__db[$this->__useDb]['database']];
 				$this->execute('OPTIMIZE TABLE '. $this->backtick($tableName));  
-			}  
+			}
+
 			return true;
 		} else {
 			$sql = "OPTIMIZE TABLE ". $this->backtick($tableName);
+            
 			return $this->execute($sql, $dataBit);
 		}
 	} 
@@ -715,6 +726,7 @@ class Database {
 			$execute = true;
 			$dataBit = microtime();
 			$this->__startLoadTime($dataBit);
+            $tableNames = array();
 			
 			if (empty($finder)) {
 				$finder = 'all';
@@ -724,12 +736,16 @@ class Database {
 			if (is_array($tableName)) {
 				$tables = array();
 				foreach ($tableName as $as => $table) {
-					if (is_int($as)) $as = $table;
+					if (is_int($as)) {
+                        $as = $table;
+                    }
+
 					$tables[] = $this->backtick($table) ." AS ". $this->backtick(ucfirst($as));
+                    $tableNames[] = $this->backtick(ucfirst($as));
 				}
 				$table = implode(', ', $tables);
 			} else {
-				$table = $this->backtick($tableName);
+				$table = $tableNames[] = $this->backtick($tableName);
 			}
 			
 			// Fields
@@ -739,13 +755,15 @@ class Database {
 				if (!empty($options['fields']) && is_array($options['fields'])) {
 					$this->__buildFields($dataBit, $options['fields'], 'select');
 					$fields = implode(', ', $this->__data[$dataBit]['fields']);
+                    
 				} else {
-					if (is_array($tableName)) {
-						$fields = array();
-						foreach ($tableName as $as => $t) {
-							if (is_int($as)) $as = $t;
-							$fields[] = $this->backtick(ucfirst($as)) .".*";
+					if (count($tableNames) > 1) {
+                        $fields = array();
+                        
+						foreach ($tableNames as $t) {
+							$fields[] = $t .".*";
 						}
+                        
 						$fields = implode(', ', $fields);
 					} else {
 						$fields = '*';
@@ -800,7 +818,7 @@ class Database {
 			// Limit, offset
 			if ($finder == 'first') {
 				$options['limit'] = 1;
-				$options['offset'] = NULL;
+				$options['offset'] = null;
 			}
 			
 			if (isset($options['limit']) && is_int($options['limit'])) {
@@ -817,6 +835,10 @@ class Database {
 			
 			// Execute query and return results
 			if ($execute === true) {
+                if (!isset($this->__data[$dataBit]['binds'])) {
+                    $this->__data[$dataBit]['binds'] = array();
+                }
+                
 				$sql = $this->bind($sql, $this->__data[$dataBit]['binds']);
 				$query = $this->execute($sql, $dataBit);
 				
@@ -957,14 +979,21 @@ class Database {
 			break;
 			
 			case 'select':
-				foreach ($columns as $column) {
-					if (strpos(strtoupper($column), ' AS ') !== false) {
-						$column = str_replace(' as ', ' AS ', $column);
-						$parts = explode('AS', $column);
-						$this->__data[$dataBit]['fields'][] = $this->backtick(trim($parts[0])) .' AS '. $this->backtick(trim($parts[1]));
-					} else {
-						$this->__data[$dataBit]['fields'][] = $this->backtick($column);
-					}
+				foreach ($columns as $tableAlias => $column) {
+                    if (is_string($tableAlias) && is_array($column)) {
+                        foreach ($column as $ci => $col) {
+                            $column[$ci] = $tableAlias .'.'. $col;
+                        }
+
+                        $this->__buildFields($dataBit, $column, 'select');
+                    } else {
+                        if (strpos(strtoupper($column), ' AS ') !== false) {
+                            $parts = explode('AS', str_replace(' as ', ' AS ', $column));
+                            $this->__data[$dataBit]['fields'][] = $this->backtick(trim($parts[0])) .' AS '. $this->backtick(trim($parts[1]));
+                        } else {
+                            $this->__data[$dataBit]['fields'][] = $this->backtick($column);
+                        }
+                    }
 				}
 			break;
 		}
