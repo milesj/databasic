@@ -7,7 +7,7 @@ error_reporting(E_ALL);
 require_once('database.php');
 
 // Store db info and initialize
-Database::store('default', 'localhost', 'user', 'database', 'password');
+Database::store('default', 'localhost', 'database', 'user', 'password');
 
 $db = Database::getInstance();
 
@@ -25,4 +25,15 @@ $total = $db->select('count', 'users', array(
 $last_id = $db->insert('users', array(
 	'username' => 'milesj',
 	'website' => 'http://milesj.me'
+));
+
+// Selecting from multiple tables
+$results = $db->select('first', array('users', 'profile'), array(
+    'conditions' => array(
+        'username' => 'milesj'
+    ),
+	'fields' => array(
+        'Users' => array('id', 'username', 'email', 'profile_id'),
+        'Profile' => array('signature', 'avatar')
+    )
 ));

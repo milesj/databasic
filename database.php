@@ -18,7 +18,15 @@ class Database {
      * @access public
      * @var int
      */
-    public $version = '2.3.9';
+    public $version = '2.4';
+
+    /**
+     * The MySQLi instance.
+     *
+     * @access public
+     * @var object
+     */
+    public $sql;
 
     /**
      * If you want data returned as an object instead of an array.
@@ -29,14 +37,6 @@ class Database {
     private $__asObject = false;
 
     /**
-     * Holds the database connection link.
-     *
-     * @access private
-     * @var mixed
-     */
-    private $__connection = null;
-
-    /**
      * Holds data for SQLs and binds.
      *
      * @access private
@@ -45,7 +45,7 @@ class Database {
     private $__data;
 
     /**
-     * Contains database connection information.
+     * Contains all database connection information.
      *
      * @access private
      * @var array
@@ -85,13 +85,6 @@ class Database {
      * @static
      */
     private static $__instance;
-
-    /**
-     * Should the connection be persistent?
-     * @access private
-     * @var boolean
-     */
-    private $__persistent = true;
 
     /**
      * A list of all queries being processed on a page.
@@ -196,24 +189,17 @@ class Database {
             $value = stripslashes($value);
         }
 
-        if (function_exists('mysql_real_escape_string')) {
-            $value = mysql_real_escape_string($value, $this->__connection);
-        } else {
-            $value = mysql_escape_string($value);
-        }
-
-        return $value;
+        return $this->sql->real_escape_string($value);
     }
 
     /**
      * Count the number of returned rows from the query result.
      *
      * @access public
-     * @param result $query
      * @return int
      */
-    public function countRows($query) {
-        return intval(mysql_num_rows($query));
+    public function countRows() {
+        return intval($this->sql->field_count);
     }
 	
     /**
@@ -533,10 +519,14 @@ class Database {
             $this->__startLoadTime($dataBit);
         }
 
-        $result = mysql_query($sql, $this->__connection);
+        if (!$this->sql->ping()) {
+            trigger_error('Database::execute(): Your database connection has been lost!', E_USER_ERROR);
+        }
+
+        $result = $this->sql->query($sql);
 
         if ($result === false) {
-            $failure = mysql_error() .'. ('. mysql_errno() .')';
+            $failure = $this->sql->error .'. ('. $this->sql->errno .')';
             trigger_error('Database::execute(): '. $failure, E_USER_ERROR);
         } else {
             ++$this->__executed;
@@ -577,9 +567,9 @@ class Database {
      */
     public function fetchAll($query) {
         if ($this->__asObject === true) {
-            $result = mysql_fetch_object($query);
+            $result = $query->fetch_object();
         } else {
-            $result = mysql_fetch_assoc($query);
+            $result = $query->fetch_assoc();
         }
 
         return $result;
@@ -605,7 +595,7 @@ class Database {
      * @return int
      */
     public function getAffected() {
-        return intval(mysql_affected_rows());
+        return intval($this->sql->affected_rows);
     }
 
     /**
@@ -623,16 +613,13 @@ class Database {
      *
      * @access public
      * @param string $useDb
-     * @param boolean $persist
      * @return instance
      * @static
      */
-    public static function getInstance($useDb = 'default', $persist = true) {
+    public static function getInstance($useDb = 'default') {
         if (!isset(self::$__instance[$useDb])){
             self::$__instance[$useDb] = new Database(self::$__db[$useDb]);
         }
-
-        self::$__instance[$useDb]->__persistent = $persist;
 
         return self::$__instance[$useDb];
     }
@@ -644,7 +631,7 @@ class Database {
      * @return int
      */
     public function getLastInsertId() {
-        return intval(mysql_insert_id($this->__connection));
+        return intval($this->sql->insert_id);
     }
 
     /**
@@ -858,8 +845,10 @@ class Database {
                             return $fetch['count'];
                         }
                     }
+                    
                 } else if ($finder == 'first') {
                     return $this->fetch($query);
+
                 } else {
                     $rows = array();
                     while ($row = $this->fetchAll($query)) {
@@ -1077,22 +1066,18 @@ class Database {
      *
      * @access public
      * @param string $useDb
-     * @return boolean
+     * @return void
      */
     private function __connect() {
-        $connect = ($this->__persistent === true) ? 'mysql_pconnect' : 'mysql_connect';
         $this->__queries = array();
         $this->__executed = 0;
-        $this->__connection = $connect($this->__dbConfig['server'], $this->__dbConfig['username'], $this->__dbConfig['password']);
+        $this->sql = new mysqli($this->__dbConfig['server'], $this->__dbConfig['username'], $this->__dbConfig['password'], $this->__dbConfig['database']);
 
-        if ($this->__connection) {
-            if (!mysql_select_db($this->__dbConfig['database'], $this->__connection)) {
-                trigger_error('Database::connect(): '. mysql_error() .'. ('. mysql_errno() .')', E_USER_ERROR);
-            }
+        if (mysqli_connect_error()) {
+            trigger_error('Database::connect(): '. mysqli_connect_errno() .'. ('. mysqli_connect_error() .')', E_USER_ERROR);
         }
 
         unset($this->__dbConfig['password']);
-        return $this->__connection;
     }
 	
     /**
