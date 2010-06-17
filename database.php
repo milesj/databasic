@@ -232,7 +232,7 @@ class Database {
 		);
 		
 		$keys = $sql = array();
-		$settings = array_merge($defaults, $settings);
+		$settings = $settings + $defaults;
 		$isDateTime = false;
 		
 		// Build schema
@@ -244,6 +244,15 @@ class Database {
 			
 			foreach ($schema as $field => $data) {
 				$column = "\t". $this->backtick($field);
+
+                $data['options'] = (isset($data['options']) ? $data['options'] : array())  + array(
+                    'null' => false,
+                    'unsigned' => false,
+                    'zerofill' => false,
+                    'comment' => '',
+                    'default' => '',
+                    'auto_increment' => false
+                );
 				
 				if (empty($data['type'])) {
 					$data['type'] = 'text';
@@ -272,16 +281,16 @@ class Database {
 					}
 					
 					// Unsigned, Zerofill
-					if (isset($data['options']['unsigned']) && $data['options']['unsigned'] === true) {
+					if ($data['options']['unsigned'] === true) {
 						$column .= " UNSIGNED";
 					
-						if (isset($data['options']['zerofill']) && $data['options']['zerofill'] === true) {
+						if ($data['options']['zerofill'] === true) {
 							$column .= " ZEROFILL";
 						}
 					}
 					
 					// Auto increment
-					if (isset($data['options']['auto_increment']) && $data['options']['auto_increment'] === true) {
+					if ($data['options']['auto_increment'] === true) {
 						$column .= " AUTO_INCREMENT";
 					}
 				
@@ -295,9 +304,14 @@ class Database {
 				
 				// Enum
 				} else if ($data['type'] == 'enum') {
-					if (is_array($data['length'])) {
+                    if (is_array($data['length']) && empty($data['enum'])) {
+                        $data['enum'] = $data['length'];
+                        unset($data['length']);
+                    }
+
+					if (is_array($data['enum'])) {
 						$opts = array();
-						foreach ($data['length'] as $opt) {
+						foreach ($data['enum'] as $opt) {
 							$opts[] = "'". $opt ."'";
 						}
 						$column .= " ENUM(". implode(', ', $opts) .")";
@@ -315,7 +329,7 @@ class Database {
 				
 				if (isset($data['type'])) {
 					// Null
-					if (!isset($data['options']['auto_increment']) && $data['options']['null'] === true) {
+					if (!$data['options']['auto_increment'] && $data['options']['null'] === true) {
 						$column .= " NULL";
 					} else {
 						$column .= " NOT NULL";
@@ -323,18 +337,19 @@ class Database {
 					
 					// Default
 					if ($data['type'] == 'enum') {
-						if (isset($data['options']['default']) && in_array($data['options']['default'], $data['length'])) {
+						if (!empty($data['options']['default']) && in_array($data['options']['default'], $data['enum'])) {
 							$default = $data['options']['default'];
 						} else {
-							$default = $data['length'][0];
+							$default = $data['enum'][0];
 						}
 						$column .= " DEFAULT '". $default ."'";
-					} else if (isset($data['options']['default']) && !isset($data['options']['auto_increment'])) {
+
+					} else if (!empty($data['options']['default']) && !$data['options']['auto_increment']) {
 						$column .= " DEFAULT '". $this->__encode($data['options']['default']) ."'";
 					}
 					
 					// Comment
-					if (isset($data['options']['comment'])) {
+					if (!empty($data['options']['comment'])) {
 						$column .= " COMMENT '". $this->__encode($data['options']['comment']) ."'";
 					}
 					
@@ -349,7 +364,7 @@ class Database {
 						}
 					}
 					
-					$sql[] = $column;
+					$sql[] = $column .',';
 				}
 			}
 			
@@ -357,14 +372,27 @@ class Database {
 			if (!empty($keys)) {
 				foreach ($keys as $key => $field) {
 					if ($key == 'index') {
-						foreach ($field as $index) {
-							$sql[] = "\tKEY ". $this->backtick($index) ." (". $this->backtick($index) .")";
+                        $keySql = "";
+						foreach ($field as $i => $index) {
+							$keySql .= "\tKEY ". $this->backtick($index) ." (". $this->backtick($index) .")";
+
+                            if (count($field) != ($i + 1)) {
+                                $keySql .= ',';
+                            }
 						}
+
 					} else if ($key == 'primary') {
-						$sql[] = "\tPRIMARY KEY (". $this->backtick($field) .")";
+						$keySql = "\tPRIMARY KEY (". $this->backtick($field) .")";
+
 					} else if ($key == 'uniqe') {
-						$sql[] = "\tUNIQUE KEY (". $this->backtick($field) .")";
+						$keySql = "\tUNIQUE KEY (". $this->backtick($field) .")";
 					}
+
+                    if ($key != 'index' && count($keys) != 1) {
+                        $keySql .= ',';
+                    }
+
+                    $sql[] = $keySql;
 				}
 			}
 			
