@@ -1,15 +1,16 @@
-Databasic v2.3.2 - MySQL Database Handler
-*****************************************
+Databasic v2.4.1 - MySQLi Database Handler
+******************************************
 
 Requirements
 ============
 
-	* PHP 5.2.x
+    * PHP 5.2.x
+    * MySqli Extension
 
 Features
 ========
 
-    * Creates a persistent connection to a specified database
+    * Creates a connection to a database using MySQLi
     * Can store and connect to multiple databases
     * Stores the connection within a Singleton instance
     * Logs queried information and total executed queries
@@ -24,5 +25,5 @@ Features
 Documentation
 =============
 
-	* http://www.milesj.me/resources/script/database-handler
+    * http://milesj.me/resources/script/database-handler
 

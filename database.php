@@ -18,7 +18,7 @@ class Database {
      * @access public
      * @var int
      */
-    public $version = '2.4';
+    public $version = '2.4.1';
 
     /**
      * The MySQLi instance.
@@ -470,11 +470,9 @@ class Database {
         if (!empty($tableName)) {
             $dataBit = microtime();
             $this->__startLoadTime($dataBit);
-
-            $sql = "DESCRIBE ". $this->backtick($tableName);
-
             $rows = array();
-            if ($query = $this->execute($sql, $dataBit)) {
+
+            if ($query = $this->execute("DESCRIBE ". $this->backtick($tableName), $dataBit)) {
                 while ($row = $this->fetchAll($query)) {
                     $rows[] = $row;
                 }
@@ -498,8 +496,7 @@ class Database {
             $dataBit = microtime();
             $this->__startLoadTime($dataBit);
 
-            $sql = "DROP TABLE ". $this->backtick($tableName);
-            return $this->execute($sql, $dataBit);
+            return $this->execute("DROP TABLE ". $this->backtick($tableName), $dataBit);
         }
 
         return;
@@ -690,18 +687,15 @@ class Database {
         $this->__startLoadTime($dataBit);
 
         if (empty($tableName)) {
-            $query = $this->execute('SHOW TABLES', $dataBit);
+            $tables = $this->tables();
 
-            while ($table = $this->fetchAll($query)) {
-                $tableName = $table['Tables_in_'. $this->__dbConfig['database']];
-                $this->execute('OPTIMIZE TABLE '. $this->backtick($tableName));
+            foreach ($tables as $table) {
+                $this->execute('OPTIMIZE TABLE '. $this->backtick($table), $dataBit);
             }
 
             return true;
         } else {
-            $sql = "OPTIMIZE TABLE ". $this->backtick($tableName);
-
-            return $this->execute($sql, $dataBit);
+            return $this->execute("OPTIMIZE TABLE ". $this->backtick($tableName), $dataBit);
         }
     }
 	
@@ -886,6 +880,26 @@ class Database {
         unset($password);
         return true;
     }
+
+    /**
+     * Return an array of table names.
+     *
+     * @access public
+     * @return array
+     */
+    public function tables() {
+        $dataBit = microtime();
+        $this->__startLoadTime($dataBit);
+        
+        $query = $this->execute('SHOW TABLES', $dataBit);
+        $tables = array();
+
+        while ($table = $this->fetchAll($query)) {
+            $tables[] = $table['Tables_in_'. $this->__dbConfig['database']];
+        }
+
+        return $tables;
+    }
 	
     /**
      * Truncates a table (empties all data and sets auto_increment to 0).
@@ -899,8 +913,7 @@ class Database {
             $dataBit = microtime();
             $this->__startLoadTime($dataBit);
 
-            $sql = "TRUNCATE TABLE ". $this->backtick($tableName);
-            return $this->execute($sql, $dataBit);
+            return $this->execute("TRUNCATE TABLE ". $this->backtick($tableName), $dataBit);
         }
 
         return;
