@@ -18,7 +18,7 @@ class Database {
 	 * @access public
 	 * @var int
 	 */
-	public $version = '2.3.2';
+	public $version = '2.3.5';
 	
 	/**
 	 * If you want data returned as an object instead of an array.
@@ -49,8 +49,17 @@ class Database {
 	 *
 	 * @access private
 	 * @var array
+     * @static
 	 */
-	private $__db = array();
+	private static $__db = array();
+
+    /**
+     * The current DB config for the instance.
+     *
+     * @access private
+     * @var array
+     */
+    private $__dbConfig = array();
 	 
 	/**
 	 * If enabled, logs all queries and executions.
@@ -73,6 +82,7 @@ class Database {
 	 *
 	 * @access private
 	 * @var instance
+     * @static
 	 */
 	private static $__instance;
 	
@@ -92,21 +102,14 @@ class Database {
 	private $__queries;
 	
 	/**
-	 * The current database being used .
-	 *
-	 * @access private
-	 * @var string
-	 */ 
-	private $__useDb;
-	
-	/**
 	 * Connects to the database on class initialize; use getInstance().
 	 *
 	 * @access private
+     * @param array $dbCfg
 	 * @return void
 	 */ 
-	private function __construct() {
-		// Load object without connecting to the database
+	private function __construct($dbCfg) {
+        $this->__dbConfig = $dbCfg;
 	} 
 	
 	/**
@@ -617,18 +620,22 @@ class Database {
 	 *
 	 * @access public
 	 * @param string $useDb
+     * @param boolean $persist
 	 * @return instance
+     * @static
 	 */
-	public static function getInstance($useDb = 'default') {
-		if (!isset(self::$__instance)){
-			self::$__instance = new Database();
+	public static function getInstance($useDb = 'default', $persist = true) {
+		if (!isset(self::$__instance[$useDb])){
+			self::$__instance[$useDb] = new Database(self::$__db[$useDb]);
 		}
 		
-		if (!empty($useDb) && !self::$__instance->__connection) {
-			self::$__instance->__connect($useDb);
+		if (!empty($useDb) && !self::$__instance[$useDb]->__connection) {
+			self::$__instance[$useDb]->__connect();
 		}
-		
-		return self::$__instance;
+
+        self::$__instance[$useDb]->__persistent = $persist;
+
+		return self::$__instance[$useDb];
 	}
 	
 	/**
@@ -700,7 +707,7 @@ class Database {
 			$query = $this->execute('SHOW TABLES', $dataBit);
 
 			while ($table = $this->fetchAll($query)) {  
-				$tableName = $table['Tables_in_'. $this->__db[$this->__useDb]['database']];
+				$tableName = $table['Tables_in_'. $this->__dbConfig['database']];
 				$this->execute('OPTIMIZE TABLE '. $this->backtick($tableName));  
 			}
 
@@ -876,9 +883,10 @@ class Database {
 	 * @param string $username
 	 * @param string $password
 	 * @return boolean
+     * @static
 	 */
 	public static function store($db, $server, $database, $username, $password) {
-		self::getInstance(false)->__db[$db] = array(
+		self::$__db[$db] = array(
 			'server'	=> $server,
 			'database'	=> $database,
 			'username'	=> $username,
@@ -1068,20 +1076,19 @@ class Database {
 	 * @param string $useDb
 	 * @return boolean
 	 */
-	private function __connect($useDb) {
+	private function __connect() {
 		$connect = ($this->__persistent === true) ? 'mysql_pconnect' : 'mysql_connect';
-		$this->__useDb = $useDb;
 		$this->__queries = array();
 		$this->__executed = 0;
-		$this->__connection = $connect($this->__db[$useDb]['server'], $this->__db[$useDb]['username'], $this->__db[$useDb]['password']);
+		$this->__connection = $connect($this->__dbConfig['server'], $this->__dbConfig['username'], $this->__dbConfig['password']);
 	
 		if ($this->__connection) {
-			if (!mysql_select_db($this->__db[$useDb]['database'], $this->__connection)) {
+			if (!mysql_select_db($this->__dbConfig['database'], $this->__connection)) {
 				trigger_error('Database::connect(): '. mysql_error() .'. ('. mysql_errno() .')', E_USER_ERROR); 
 			}
 		}
 		
-		unset($this->__db[$useDb]['password']);
+		unset($this->__dbConfig['password']);
 		return $this->__connection;
 	}
 	
