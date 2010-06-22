@@ -13,12 +13,12 @@
 class Database { 
 
     /**
-     * Current version: www.milesj.me/resources/logs/database-handler
+     * Current version: http://milesj.me/resources/logs/database-handler
      *
      * @access public
      * @var int
      */
-    public $version = '2.4.1';
+    public $version = '2.4.2';
 
     /**
      * The MySQLi instance.
@@ -190,6 +190,77 @@ class Database {
         }
 
         return $this->sql->real_escape_string($value);
+    }
+
+    /**
+     * Get all column information for a table.
+     * Is formatted based on the create() syntax.
+     *
+     * @access public
+     * @param string $tableName
+     * @param boolean $explicit
+     * @return array
+     */
+    public function columns($tableName, $explicit = true) {
+        if (!empty($tableName)) {
+            $dataBit = microtime();
+            $this->__startLoadTime($dataBit);
+
+            $query = $this->execute("SHOW FULL COLUMNS FROM ". $this->backtick($tableName), $dataBit);
+            $columns = array();
+
+            while ($row = $this->fetchAll($query)) {
+                if ($explicit) {
+                    $type = $row['Type'];
+                    $length = "";
+
+                    if (($pos = strpos($row['Type'], '(')) !== false) {
+                        $type = substr($row['Type'], 0, $pos);
+
+                        preg_match('/\((.*?)\)/is', $row['Type'], $matches);
+
+                        if (strpos($matches[1], ',') !== false) {
+                            $enum = $matches[1];
+                            $length = array_map(
+                                create_function('$enum', 'return trim($enum, "\'");'),
+                                explode(',', $enum)
+                            );
+                        } else {
+                            $length = $matches[1];
+                        }
+                    }
+
+                    $column = array(
+                        'type' => $type,
+                        'length' => $length,
+                        'options' => array(
+                            'null' => (strtolower($row['Null']) == 'yes'),
+                            'unsigned' => (strpos($row['Type'], 'unsigned') !== false),
+                            'zerofill' => (strpos($row['Type'], 'zerofill') !== false),
+                            'default' => $row['Default'],
+                            'comment' => $row['Comment'],
+                            'auto_increment' => ($row['Extra'] == 'auto_increment')
+                        )
+                    );
+
+                    if (!empty($row['Key'])) {
+                        switch ($row['Key']) {
+                            case 'PRI': $column['key'] = 'primary'; break;
+                            case 'UNI': $column['key'] = 'unique'; break;
+                            case 'MUL': $column['key'] = 'index'; break;
+                        }
+                    }
+
+                    $columns[$row['Field']] = $column;
+                } else {
+                    $columns[] = $row['Field'];
+                }
+            }
+
+            return $columns;
+        }
+
+        return;
     }
 
     /**
