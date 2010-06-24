@@ -4,7 +4,7 @@ Databasic v2.4 - MySQLi Database Handler
 Requirements
 ============
 
-    * PHP 5.2.x
+    * PHP 5.2.x 
     * MySqli Extension
 
 Features
