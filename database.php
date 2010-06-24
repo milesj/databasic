@@ -18,7 +18,7 @@ class Database {
      * @access public
      * @var int
      */
-    public $version = '2.4.2';
+    public $version = '2.4';
 
     /**
      * The MySQLi instance.
@@ -42,7 +42,7 @@ class Database {
      * @access private
      * @var array
      */
-    private $__data;
+    private $__data = array();
 
     /**
      * Contains all database connection information.
@@ -51,7 +51,7 @@ class Database {
      * @var array
      * @static
      */
-    private static $__db = array();
+    private static $__dbConfigs = array();
 
     /**
      * The current DB config for the instance.
@@ -59,7 +59,7 @@ class Database {
      * @access private
      * @var array
      */
-    private $__dbConfig = array();
+    private $__db = array();
 
     /**
      * If enabled, logs all queries and executions.
@@ -75,16 +75,16 @@ class Database {
      * @access private
      * @var int
      */
-    private $__executed;
+    private $__executed = 0;
 
     /**
      * Contains the database instance.
      *
      * @access private
-     * @var instance
+     * @var array
      * @static
      */
-    private static $__instance;
+    private static $__instance = array();
 
     /**
      * A list of all queries being processed on a page.
@@ -92,7 +92,7 @@ class Database {
      * @access private
      * @var array
      */
-    private $__queries;
+    private $__queries = array();
 
     /**
      * Connects to the database on class initialize; use getInstance().
@@ -102,7 +102,7 @@ class Database {
      * @return void
      */
     private function __construct($dbCfg) {
-        $this->__dbConfig = $dbCfg;
+        $this->__db = $dbCfg;
         $this->__connect();
     }
 	
@@ -122,6 +122,19 @@ class Database {
 
         $this->__data[$dataBit]['binds'][':'. trim($key, ':') .':'] = $value;
         return $key;
+    }
+
+    /**
+     * Set the fetch type.
+     *
+     * @access public
+     * @param boolean $status
+     * @return void
+     */
+    public function asObject($status = false) {
+        if (is_bool($status)) {
+            $this->__asObject = $status;
+        }
     }
 	
     /**
@@ -644,19 +657,6 @@ class Database {
     }
 
     /**
-     * Set the fetch type.
-     *
-     * @access public
-     * @param boolean $status
-     * @return void
-     */
-    public function fetchAsObject($status = false) {
-        if (is_bool($status)) {
-            $this->__asObject = $status;
-        }
-    }
-
-    /**
      * Gets the previously affected rows.
      *
      * @access public
@@ -686,7 +686,7 @@ class Database {
      */
     public static function getInstance($useDb = 'default') {
         if (!isset(self::$__instance[$useDb])){
-            self::$__instance[$useDb] = new Database(self::$__db[$useDb]);
+            self::$__instance[$useDb] = new Database(self::$__dbConfigs[$useDb]);
         }
 
         return self::$__instance[$useDb];
@@ -941,7 +941,7 @@ class Database {
      * @static
      */
     public static function store($db, $server, $database, $username, $password) {
-        self::$__db[$db] = array(
+        self::$__dbConfigs[$db] = array(
             'server'	=> $server,
             'database'	=> $database,
             'username'	=> $username,
@@ -966,7 +966,7 @@ class Database {
         $tables = array();
 
         while ($table = $this->fetchAll($query)) {
-            $tables[] = $table['Tables_in_'. $this->__dbConfig['database']];
+            $tables[] = $table['Tables_in_'. $this->__db['database']];
         }
 
         return $tables;
@@ -1155,13 +1155,13 @@ class Database {
     private function __connect() {
         $this->__queries = array();
         $this->__executed = 0;
-        $this->sql = new mysqli($this->__dbConfig['server'], $this->__dbConfig['username'], $this->__dbConfig['password'], $this->__dbConfig['database']);
+        $this->sql = new mysqli($this->__db['server'], $this->__db['username'], $this->__db['password'], $this->__db['database']);
 
         if (mysqli_connect_error()) {
             trigger_error('Database::connect(): '. mysqli_connect_errno() .'. ('. mysqli_connect_error() .')', E_USER_ERROR);
         }
 
-        unset($this->__dbConfig['password']);
+        unset($this->__db['password']);
     }
 	
     /**
