@@ -4,21 +4,21 @@
  *
  * A wrapper class for accessing, abstracting and manipulating a MySQL database.
  * 
- * @author      Miles Johnson - www.milesj.me
- * @copyright   Copyright 2006-2009, Miles Johnson, Inc.
+ * @author      Miles Johnson - http://milesj.me
+ * @copyright   Copyright 2006-2010, Miles Johnson, Inc.
  * @license     http://opensource.org/licenses/mit-license.php - Licensed under The MIT License
- * @link        http://milesj.me/resources/script/database-handler
+ * @link        http://milesj.me/code/php/databasic
  */
  
-class Database { 
+class Databasic {
 
     /**
-     * Current version: http://milesj.me/resources/logs/database-handler
+     * Current version.
      *
      * @access public
      * @var int
      */
-    public $version = '2.4';
+    public $version = '2.5';
 
     /**
      * The MySQLi instance.
