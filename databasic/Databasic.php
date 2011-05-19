@@ -121,6 +121,7 @@ class Databasic {
         }
 
         $this->_data[$dataBit]['binds'][':'. trim($key, ':') .':'] = $value;
+		
         return $key;
     }
 
@@ -132,9 +133,7 @@ class Databasic {
      * @return void
      */
     public function asObject($status = false) {
-        if (is_bool($status)) {
-            $this->_asObject = $status;
-        }
+        $this->_asObject = (boolean) $status;
     }
 	
     /**
@@ -146,14 +145,14 @@ class Databasic {
      * @return string
      */
     public function backtick($var, $tick = true) {
-        $var = strval(trim($var));
+        $var = trim((string) $var);
 
         if (mb_strpos($var, '.') !== false) {
             $v = explode('.', $var);
             $var  = "`". $v[0] ."`.";
             $var .= ($v[1] == '*') ? '*' : "`". $v[1] ."`";
         } else {
-            $var = ($tick === true) ? "`$var`" : $var;
+            $var = ($tick) ? "`$var`" : $var;
         }
 
         return $var;
@@ -175,7 +174,7 @@ class Databasic {
                     if (is_string($param) && isset($value)) {
                         $param = ':'. trim($param, ':') .':';
 
-                        if (!preg_match('/^[_A-Z0-9]+\((.*)\)/', $value) && $clean === true) {
+                        if (!preg_match('/^[_A-Z0-9]+\((.*)\)/', $value) && $clean) {
                             $value = $this->clean($value);
                         }
 
@@ -215,65 +214,65 @@ class Databasic {
      * @return array
      */
     public function columns($tableName, $explicit = true) {
-        if (!empty($tableName)) {
-            $dataBit = microtime();
-            $this->_startLoadTime($dataBit);
+        if (empty($tableName)) {
+			return;
+		}
 
-            $query = $this->execute("SHOW FULL COLUMNS FROM ". $this->backtick($tableName), $dataBit);
-            $columns = array();
+		$dataBit = microtime();
+		$this->_startLoadTime($dataBit);
 
-            while ($row = $this->fetchAll($query)) {
-                if ($explicit) {
-                    $type = $row['Type'];
-                    $length = "";
+		$query = $this->execute("SHOW FULL COLUMNS FROM ". $this->backtick($tableName), $dataBit);
+		$columns = array();
 
-                    if (($pos = strpos($row['Type'], '(')) !== false) {
-                        $type = substr($row['Type'], 0, $pos);
+		while ($row = $this->fetchAll($query)) {
+			if ($explicit) {
+				$type = $row['Type'];
+				$length = "";
 
-                        preg_match('/\((.*?)\)/is', $row['Type'], $matches);
+				if (($pos = strpos($row['Type'], '(')) !== false) {
+					$type = substr($row['Type'], 0, $pos);
 
-                        if (strpos($matches[1], ',') !== false) {
-                            $enum = $matches[1];
-                            $length = array_map(
-                                create_function('$enum', 'return trim($enum, "\'");'),
-                                explode(',', $enum)
-                            );
-                        } else {
-                            $length = $matches[1];
-                        }
-                    }
+					preg_match('/\((.*?)\)/is', $row['Type'], $matches);
 
-                    $column = array(
-                        'type' => $type,
-                        'length' => $length,
-                        'options' => array(
-                            'null' => (strtolower($row['Null']) == 'yes'),
-                            'unsigned' => (strpos($row['Type'], 'unsigned') !== false),
-                            'zerofill' => (strpos($row['Type'], 'zerofill') !== false),
-                            'default' => $row['Default'],
-                            'comment' => $row['Comment'],
-                            'auto_increment' => ($row['Extra'] == 'auto_increment')
-                        )
-                    );
+					if (strpos($matches[1], ',') !== false) {
+						$enum = $matches[1];
+						$length = array_map(
+							create_function('$enum', 'return trim($enum, "\'");'),
+							explode(',', $enum)
+						);
+					} else {
+						$length = $matches[1];
+					}
+				}
 
-                    if (!empty($row['Key'])) {
-                        switch ($row['Key']) {
-                            case 'PRI': $column['key'] = 'primary'; break;
-                            case 'UNI': $column['key'] = 'unique'; break;
-                            case 'MUL': $column['key'] = 'index'; break;
-                        }
-                    }
+				$column = array(
+					'type' => $type,
+					'length' => $length,
+					'options' => array(
+						'null' => (strtolower($row['Null']) == 'yes'),
+						'unsigned' => (strpos($row['Type'], 'unsigned') !== false),
+						'zerofill' => (strpos($row['Type'], 'zerofill') !== false),
+						'default' => $row['Default'],
+						'comment' => $row['Comment'],
+						'auto_increment' => ($row['Extra'] == 'auto_increment')
+					)
+				);
 
-                    $columns[$row['Field']] = $column;
-                } else {
-                    $columns[] = $row['Field'];
-                }
-            }
+				if (!empty($row['Key'])) {
+					switch ($row['Key']) {
+						case 'PRI': $column['key'] = 'primary'; break;
+						case 'UNI': $column['key'] = 'unique'; break;
+						case 'MUL': $column['key'] = 'index'; break;
+					}
+				}
 
-            return $columns;
-        }
+				$columns[$row['Field']] = $column;
+			} else {
+				$columns[] = $row['Field'];
+			}
+		}
 
-        return;
+		return $columns;
     }
 
     /**
@@ -283,7 +282,7 @@ class Databasic {
      * @return int
      */
     public function countRows() {
-        return intval($this->sql->field_count);
+        return (int) $this->sql->field_count;
     }
 	
     /**
@@ -306,189 +305,191 @@ class Databasic {
         );
 
         // Build schema
-        if (!empty($schema)) {
-            $dataBit = microtime();
-            $this->_startLoadTime($dataBit);
+        if (empty($schema)) {
+			return;
+		}
+		
+		$dataBit = microtime();
+		$this->_startLoadTime($dataBit);
 
-            $sql[] = "CREATE TABLE IF NOT EXISTS ". $this->backtick($tableName) ." (";
+		$sql[] = "CREATE TABLE IF NOT EXISTS ". $this->backtick($tableName) ." (";
 
-            foreach ($schema as $field => $data) {
-                $column = "\t". $this->backtick($field);
+		foreach ($schema as $field => $data) {
+			$column = "\t". $this->backtick($field);
 
-                $data['options'] = (isset($data['options']) ? $data['options'] : array())  + array(
-                    'null' => false,
-                    'unsigned' => false,
-                    'zerofill' => false,
-                    'comment' => '',
-                    'default' => '',
-                    'auto_increment' => false
-                );
+			$data['options'] = (isset($data['options']) ? $data['options'] : array())  + array(
+				'null' => false,
+				'unsigned' => false,
+				'zerofill' => false,
+				'comment' => '',
+				'default' => '',
+				'auto_increment' => false
+			);
 
-                if (empty($data['type'])) {
-                    $data['type'] = 'text';
-                }
+			if (empty($data['type'])) {
+				$data['type'] = 'text';
+			}
 
-                if (empty($data['length'])) {
-                    $data['length'] = ($data['type'] == 'string' || $data['type'] == 'text') ? 255 : 10;
-                }
+			if (empty($data['length'])) {
+				$data['length'] = ($data['type'] == 'string' || $data['type'] == 'text') ? 255 : 10;
+			}
 
-                // Integers
-                if ($data['type'] == 'integer' || $data['type'] == 'int') {
-                    if (empty($data['length'])) {
-                        $column .= " INT(10)";
-                    } else {
-                        if ($data['length'] <= 3) {
-                            $column .= " TINYINT(3)";
-                        } else if ($data['length'] <= 5) {
-                            $column .= " SMALLINT(5)";
-                        } else if ($data['length'] <= 7) {
-                            $column .= " MEDIUMINT(7)";
-                        } else if ($data['length'] <= 10) {
-                            $column .= " INT(10)";
-                        } else {
-                            $column .= " BIGINT(25)";
-                        }
-                    }
+			// Integers
+			if ($data['type'] == 'integer' || $data['type'] == 'int') {
+				if (empty($data['length'])) {
+					$column .= " INT(10)";
+				} else {
+					if ($data['length'] <= 3) {
+						$column .= " TINYINT(3)";
+					} else if ($data['length'] <= 5) {
+						$column .= " SMALLINT(5)";
+					} else if ($data['length'] <= 7) {
+						$column .= " MEDIUMINT(7)";
+					} else if ($data['length'] <= 10) {
+						$column .= " INT(10)";
+					} else {
+						$column .= " BIGINT(25)";
+					}
+				}
 
-                    // Unsigned, Zerofill
-                    if ($data['options']['unsigned'] === true) {
-                        $column .= " UNSIGNED";
+				// Unsigned, Zerofill
+				if ($data['options']['unsigned'] === true) {
+					$column .= " UNSIGNED";
 
-                        if ($data['options']['zerofill'] === true) {
-                            $column .= " ZEROFILL";
-                        }
-                    }
+					if ($data['options']['zerofill'] === true) {
+						$column .= " ZEROFILL";
+					}
+				}
 
-                    // Auto increment
-                    if ($data['options']['auto_increment'] === true) {
-                        $column .= " AUTO_INCREMENT";
-                    }
+				// Auto increment
+				if ($data['options']['auto_increment'] === true) {
+					$column .= " AUTO_INCREMENT";
+				}
 
-                // Strings
-                } else if ($data['type'] == 'string' || $data['type'] == 'text') {
-                    if ($data['length'] <= 255) {
-                        $column .= " VARCHAR(". $data['length'] .")";
-                    } else {
-                        $column .= " TEXT";
-                    }
+			// Strings
+			} else if ($data['type'] == 'string' || $data['type'] == 'text') {
+				if ($data['length'] <= 255) {
+					$column .= " VARCHAR(". $data['length'] .")";
+				} else {
+					$column .= " TEXT";
+				}
 
-                // Enum
-                } else if ($data['type'] == 'enum') {
-                    if (is_array($data['length']) && empty($data['enum'])) {
-                        $data['enum'] = $data['length'];
-                        unset($data['length']);
-                    }
+			// Enum
+			} else if ($data['type'] == 'enum') {
+				if (is_array($data['length']) && empty($data['enum'])) {
+					$data['enum'] = $data['length'];
+					unset($data['length']);
+				}
 
-                    if (is_array($data['enum'])) {
-                        $opts = array();
+				if (is_array($data['enum'])) {
+					$opts = array();
 
-                        foreach ($data['enum'] as $opt) {
-                            $opts[] = "'". $opt ."'";
-                        }
+					foreach ($data['enum'] as $opt) {
+						$opts[] = "'". $opt ."'";
+					}
 
-                        $column .= " ENUM(". implode(', ', $opts) .")";
-                    }
+					$column .= " ENUM(". implode(', ', $opts) .")";
+				}
 
-                // Datetime
-                } else if ($data['type'] == 'datetime' || $data['type'] == 'timestamp' || $data['type'] == 'date' || $data['type'] == 'time' || $data['type'] == 'float' || $data['type'] == 'blob') {
-                    $column .= " ". strtoupper($data['type']);
+			// Datetime
+			} else if ($data['type'] == 'datetime' || $data['type'] == 'timestamp' || $data['type'] == 'date' || $data['type'] == 'time' || $data['type'] == 'float' || $data['type'] == 'blob') {
+				$column .= " ". strtoupper($data['type']);
 
-                // Year
-                } else if ($data['type'] == 'year') {
-                    $column .= " YEAR(4)";
-                }
+			// Year
+			} else if ($data['type'] == 'year') {
+				$column .= " YEAR(4)";
+			}
 
-                if (isset($data['type'])) {
-                    // Null
-                    if (!$data['options']['auto_increment'] && $data['options']['null'] === true) {
-                        $column .= " NULL";
-                    } else {
-                        $column .= " NOT NULL";
-                    }
+			if (isset($data['type'])) {
+				// Null
+				if (!$data['options']['auto_increment'] && $data['options']['null'] === true) {
+					$column .= " NULL";
+				} else {
+					$column .= " NOT NULL";
+				}
 
-                    // Default
-                    if ($data['type'] == 'enum') {
-                        if (!empty($data['options']['default']) && in_array($data['options']['default'], $data['enum'])) {
-                            $default = $data['options']['default'];
-                        } else {
-                            $default = $data['enum'][0];
-                        }
-                        $column .= " DEFAULT '". $default ."'";
+				// Default
+				if ($data['type'] == 'enum') {
+					if (!empty($data['options']['default']) && in_array($data['options']['default'], $data['enum'])) {
+						$default = $data['options']['default'];
+					} else {
+						$default = $data['enum'][0];
+					}
+					$column .= " DEFAULT '". $default ."'";
 
-                    } else if (!empty($data['options']['default']) && !$data['options']['auto_increment']) {
-                        $column .= " DEFAULT '". $this->_encode($data['options']['default']) ."'";
-                    }
+				} else if (!empty($data['options']['default']) && !$data['options']['auto_increment']) {
+					$column .= " DEFAULT '". $this->_encode($data['options']['default']) ."'";
+				}
 
-                    // Comment
-                    if (!empty($data['options']['comment'])) {
-                        $column .= " COMMENT '". $this->_encode($data['options']['comment']) ."'";
-                    }
+				// Comment
+				if (!empty($data['options']['comment'])) {
+					$column .= " COMMENT '". $this->_encode($data['options']['comment']) ."'";
+				}
 
-                    // Keys
-                    if (isset($data['key'])) {
-                        if ($data['key'] == 'index') {
-                            $keys['index'][] = $field;
-                        } else if ($data['key'] == 'primary') {
-                            $keys['primary'] = $field;
-                        } else if ($data['key'] == 'unique') {
-                            $keys['unique'] = $field;
-                        }
-                    }
+				// Keys
+				if (isset($data['key'])) {
+					if ($data['key'] == 'index') {
+						$keys['index'][] = $field;
+					} else if ($data['key'] == 'primary') {
+						$keys['primary'] = $field;
+					} else if ($data['key'] == 'unique') {
+						$keys['unique'] = $field;
+					}
+				}
 
-                    $sql[] = $column .',';
-                }
-            }
+				$sql[] = $column .',';
+			}
+		}
 
-            // Add keys
-            if (!empty($keys)) {
-                foreach ($keys as $key => $field) {
-                    if ($key == 'index') {
-                        $keySql = "";
-                        foreach ($field as $i => $index) {
-                            $keySql .= "\tKEY ". $this->backtick($index) ." (". $this->backtick($index) .")";
+		// Add keys
+		if (!empty($keys)) {
+			foreach ($keys as $key => $field) {
+				if ($key == 'index') {
+					$keySql = "";
+					foreach ($field as $i => $index) {
+						$keySql .= "\tKEY ". $this->backtick($index) ." (". $this->backtick($index) .")";
 
-                            if (count($field) != ($i + 1)) {
-                                $keySql .= ',';
-                            }
-                        }
+						if (count($field) != ($i + 1)) {
+							$keySql .= ',';
+						}
+					}
 
-                    } else if ($key == 'primary') {
-                        $keySql = "\tPRIMARY KEY (". $this->backtick($field) .")";
+				} else if ($key == 'primary') {
+					$keySql = "\tPRIMARY KEY (". $this->backtick($field) .")";
 
-                    } else if ($key == 'uniqe') {
-                        $keySql = "\tUNIQUE KEY (". $this->backtick($field) .")";
-                    }
+				} else if ($key == 'uniqe') {
+					$keySql = "\tUNIQUE KEY (". $this->backtick($field) .")";
+				}
 
-                    if ($key != 'index' && count($keys) != 1) {
-                        $keySql .= ',';
-                    }
+				if ($key != 'index' && count($keys) != 1) {
+					$keySql .= ',';
+				}
 
-                    $sql[] = $keySql;
-                }
-            }
+				$sql[] = $keySql;
+			}
+		}
 
-            // Add settings
-            $closer = ")";
-            foreach ($settings as $field => $setting) {
-                if ($field == 'engine') {
-                    $closer .= " ENGINE=". $setting;
-                } else if ($field == 'charset') {
-                    $closer .= " DEFAULT CHARSET=". $setting;
-                } else if ($field == 'comment') {
-                    $closer .= " COMMENT='". $this->_encode($setting) ."'";
-                } else if ($field == 'increment') {
-                    $closer .= " AUTO_INCREMENT=". intval($setting);
-                } else if ($field == 'collate') {
-                    $closer .= " COLLATE=". $this->_encode($setting);
-                }
-            }
-            $closer .= ";";
+		// Add settings
+		$closer = ")";
+		foreach ($settings as $field => $setting) {
+			if ($field == 'engine') {
+				$closer .= " ENGINE=". $setting;
+			} else if ($field == 'charset') {
+				$closer .= " DEFAULT CHARSET=". $setting;
+			} else if ($field == 'comment') {
+				$closer .= " COMMENT='". $this->_encode($setting) ."'";
+			} else if ($field == 'increment') {
+				$closer .= " AUTO_INCREMENT=". intval($setting);
+			} else if ($field == 'collate') {
+				$closer .= " COLLATE=". $this->_encode($setting);
+			}
+		}
+		$closer .= ";";
 
-            $sql[] = $closer;
-            $sql = implode("\n", $sql);
+		$sql[] = $closer;
+		$sql = implode("\n", $sql);
 
-            return $this->execute($sql, $dataBit);
-        }
+		return $this->execute($sql, $dataBit);
     }
 	
     /**
@@ -499,9 +500,7 @@ class Databasic {
      * @return void
      */
     public function debug($status = true) {
-        if (is_bool($status)) {
-            $this->_debug = $status;
-        }
+        $this->_debug = (boolean) $status;
     }
 	
     /**
@@ -513,34 +512,24 @@ class Databasic {
      * @param int $limit
      * @return mixed
      */
-    public function delete($tableName, $conditions, $limit = 1) {
-        if (!empty($tableName) && !empty($conditions)) {
-            $execute = true;
-            $dataBit = microtime();
-            $this->_startLoadTime($dataBit);
+    public function delete($tableName, array $conditions, $limit = 1) {
+        if (empty($tableName) || empty($conditions)) {
+			return false;
+		}
 
-            if (is_array($conditions)) {
-                $this->_buildConditions($dataBit, $conditions);
-            } else {
-                $execute = false;
-                trigger_error('Database::delete(): Conditions/Where clause supplied must be an array', E_USER_WARNING);
-            }
+		$dataBit = microtime();
+		$this->_startLoadTime($dataBit);
+		$this->_buildConditions($dataBit, $conditions);
 
-            if ($execute === true) {
-                $sql = "DELETE FROM ". $this->backtick($tableName) ." WHERE ". $this->_formatConditions($this->_data[$dataBit]['conditions']);
+		$sql = "DELETE FROM ". $this->backtick($tableName) ." WHERE ". $this->_formatConditions($this->_data[$dataBit]['conditions']);
 
-                // Limit, offset
-                if (isset($limit) && is_int($limit)) {
-                    $sql .= " LIMIT :limit:";
-                    $this->addBind($dataBit, 'limit', $limit);
-                }
+		// Limit, offset
+		if (isset($limit) && is_int($limit)) {
+			$sql .= " LIMIT :limit:";
+			$this->addBind($dataBit, 'limit', $limit);
+		}
 
-                $sql = $this->bind($sql, $this->_data[$dataBit]['binds']);
-                return $this->execute($sql, $dataBit);
-            }
-        }
-
-        return;
+		return $this->execute($this->bind($sql, $this->_data[$dataBit]['binds']), $dataBit);
     }
 	
     /**
@@ -551,21 +540,21 @@ class Databasic {
      * @return boolean
      */
     public function describe($tableName) {
-        if (!empty($tableName)) {
-            $dataBit = microtime();
-            $this->_startLoadTime($dataBit);
-            $rows = array();
+        if (empty($tableName)) {
+			return;
+		}
 
-            if ($query = $this->execute("DESCRIBE ". $this->backtick($tableName), $dataBit)) {
-                while ($row = $this->fetchAll($query)) {
-                    $rows[] = $row;
-                }
-            }
+		$dataBit = microtime();
+		$this->_startLoadTime($dataBit);
+		$rows = array();
 
-            return $rows;
-        }
+		if ($query = $this->execute("DESCRIBE ". $this->backtick($tableName), $dataBit)) {
+			while ($row = $this->fetchAll($query)) {
+				$rows[] = $row;
+			}
+		}
 
-        return;
+		return $rows;
     }
 	
     /**
@@ -576,14 +565,14 @@ class Databasic {
      * @return boolean
      */
     public function drop($tableName) {
-        if (!empty($tableName)) {
-            $dataBit = microtime();
-            $this->_startLoadTime($dataBit);
+        if (empty($tableName)) {
+			return;
+		}
 
-            return $this->execute("DROP TABLE ". $this->backtick($tableName), $dataBit);
-        }
+		$dataBit = microtime();
+		$this->_startLoadTime($dataBit);
 
-        return;
+		return $this->execute("DROP TABLE ". $this->backtick($tableName), $dataBit);
     }
 
     /**
@@ -613,7 +602,7 @@ class Databasic {
             ++$this->_executed;
         }
 
-        if ($this->_debug === true) {
+        if ($this->_debug) {
             $this->_queries[] = array(
                 'statement' => $sql,
                 'executed'  => isset($failure) ? $failure : 'true',
@@ -647,13 +636,11 @@ class Databasic {
      * @return array
      */
     public function fetchAll($query) {
-        if ($this->_asObject === true) {
-            $result = $query->fetch_object();
-        } else {
-            $result = $query->fetch_assoc();
+        if ($this->_asObject) {
+            return $query->fetch_object();
         }
 
-        return $result;
+		return $query->fetch_assoc();
     }
 
     /**
@@ -663,7 +650,7 @@ class Databasic {
      * @return int
      */
     public function getAffected() {
-        return intval($this->sql->affected_rows);
+        return (int) $this->sql->affected_rows;
     }
 
     /**
@@ -673,23 +660,23 @@ class Databasic {
      * @return int
      */
     public function getExecuted() {
-        return intval($this->_executed);
+        return (int) $this->_executed;
     }
 	
     /**
      * Connects and returns a single instance of the database connection handle.
      *
      * @access public
-     * @param string $useDb
+     * @param string $db
      * @return instance
      * @static
      */
-    public static function getInstance($useDb = 'default') {
-        if (!isset(self::$_instance[$useDb])){
-            self::$_instance[$useDb] = new Databasic(self::$_dbConfigs[$useDb]);
+    public static function getInstance($db = 'default') {
+        if (!isset(self::$_instance[$db])){
+            self::$_instance[$db] = new Databasic(self::$_dbConfigs[$db]);
         }
 
-        return self::$_instance[$useDb];
+        return self::$_instance[$db];
     }
 	
     /**
@@ -699,7 +686,7 @@ class Databasic {
      * @return int
      */
     public function getLastInsertId() {
-        return intval($this->sql->insert_id);
+        return (int) $this->sql->insert_id;
     }
 
     /**
@@ -720,30 +707,23 @@ class Databasic {
      * @param array $columns
      * @return mixed
      */
-    public function insert($tableName, $columns) {
-        if (!empty($tableName) && !empty($columns)) {
-            $execute = true;
-            $dataBit = microtime();
-            $this->_startLoadTime($dataBit);
+    public function insert($tableName, array $columns) {
+        if (empty($tableName) || empty($columns)) {
+			return false;
+		}
 
-            if (is_array($columns)) {
-                $this->_buildFields($dataBit, $columns, 'insert');
-            } else {
-                $execute = false;
-                trigger_error('Database::insert(): Columns/Fields supplied must be an array', E_USER_WARNING);
-            }
+		$dataBit = microtime();
+		$this->_startLoadTime($dataBit);
+		$this->_buildFields($dataBit, $columns, 'insert');
 
-            if ($execute === true) {
-                $sql = "INSERT INTO ". $this->backtick($tableName) ." (". implode(', ', $this->_data[$dataBit]['fields']) .") VALUES (". implode(', ', $this->_data[$dataBit]['values']) .")";
-                $sql = $this->bind($sql, $this->_data[$dataBit]['binds']);
+		$sql = "INSERT INTO ". $this->backtick($tableName) ." (". implode(', ', $this->_data[$dataBit]['fields']) .") VALUES (". implode(', ', $this->_data[$dataBit]['values']) .")";
+		$sql = $this->bind($sql, $this->_data[$dataBit]['binds']);
 
-                if ($query = $this->execute($sql, $dataBit)) {
-                    return $this->getLastInsertId();
-                }
-            }
-        }
+		if ($query = $this->execute($sql, $dataBit)) {
+			return $this->getLastInsertId();
+		}
 
-        return;
+        return false;
     }
 	
     /**
@@ -753,7 +733,7 @@ class Databasic {
      * @param string $useDb
      * @return mixed
      */
-    public function optimize($tableName = '') {
+    public function optimize($tableName = null) {
         $dataBit = microtime();
         $this->_startLoadTime($dataBit);
 
@@ -765,9 +745,9 @@ class Databasic {
             }
 
             return true;
-        } else {
-            return $this->execute("OPTIMIZE TABLE ". $this->backtick($tableName), $dataBit);
         }
+
+		return $this->execute("OPTIMIZE TABLE ". $this->backtick($tableName), $dataBit);
     }
 	
     /**
@@ -779,153 +759,155 @@ class Databasic {
      * @param array $options - fields, conditions, order, group, limit, offset
      * @return mixed
      */
-    public function select($finder, $tableName, $options = array()) {
-        if (!empty($tableName)) {
-            $execute = true;
-            $dataBit = microtime();
-            $this->_startLoadTime($dataBit);
-            $tableNames = array();
+    public function select($finder, $tableName, array $options = array()) {
+        if (empty($tableName)) {
+			return false;
+		}
 
-            if (empty($finder)) {
-                $finder = 'all';
-            }
+		$execute = true;
+		$dataBit = microtime();
+		$this->_startLoadTime($dataBit);
+		$tableNames = array();
 
-            // Table
-            if (is_array($tableName)) {
-                $tables = array();
-                foreach ($tableName as $as => $table) {
-                    if (is_int($as)) {
-                        $as = $table;
-                    }
+		if (empty($finder)) {
+			$finder = 'all';
+		}
 
-                    $tables[] = $this->backtick($table) ." AS ". $this->backtick(ucfirst($as));
-                    $tableNames[] = $this->backtick(ucfirst($as));
-                }
+		// Table
+		if (is_array($tableName)) {
+			$tables = array();
+			foreach ($tableName as $as => $table) {
+				if (is_int($as)) {
+					$as = $table;
+				}
 
-                $table = implode(', ', $tables);
-            } else {
-                $table = $tableNames[] = $this->backtick($tableName);
-            }
+				$tables[] = $this->backtick($table) ." AS ". $this->backtick(ucfirst($as));
+				$tableNames[] = $this->backtick(ucfirst($as));
+			}
 
-            // Fields
-            if ($finder == 'count') {
-                $fields = "COUNT(*) AS `count`";
-            } else {
-                if (!empty($options['fields']) && is_array($options['fields'])) {
-                    $this->_buildFields($dataBit, $options['fields'], 'select');
-                    $fields = implode(', ', $this->_data[$dataBit]['fields']);
+			$table = implode(', ', $tables);
+		} else {
+			$table = $tableNames[] = $this->backtick($tableName);
+		}
 
-                } else {
-                    if (count($tableNames) > 1) {
-                        $fields = array();
-                        foreach ($tableNames as $t) {
-                            $fields[] = $t .".*";
-                        }
+		// Fields
+		if ($finder == 'count') {
+			$fields = "COUNT(*) AS `count`";
+		} else {
+			if (!empty($options['fields']) && is_array($options['fields'])) {
+				$this->_buildFields($dataBit, $options['fields'], 'select');
+				$fields = implode(', ', $this->_data[$dataBit]['fields']);
 
-                        $fields = implode(', ', $fields);
-                    } else {
-                        $fields = '*';
-                    }
-                }
-            }
+			} else {
+				if (count($tableNames) > 1) {
+					$fields = array();
+					foreach ($tableNames as $t) {
+						$fields[] = $t .".*";
+					}
 
-            $sql = "SELECT ". $fields ." FROM ". $table;
+					$fields = implode(', ', $fields);
+				} else {
+					$fields = '*';
+				}
+			}
+		}
 
-            // Conditions
-            if (!empty($options['conditions'])) {
-                if (is_array($options['conditions'])) {
-                    $this->_buildConditions($dataBit, $options['conditions']);
-                } else {
-                    $execute = false;
-                    trigger_error('Database::select(): Conditions/Where clause supplied must be an array', E_USER_WARNING);
-                }
+		$sql = "SELECT ". $fields ." FROM ". $table;
 
-                $sql .= " WHERE ". $this->_formatConditions($this->_data[$dataBit]['conditions']);
-            }
+		// Conditions
+		if (!empty($options['conditions'])) {
+			if (is_array($options['conditions'])) {
+				$this->_buildConditions($dataBit, $options['conditions']);
+			} else {
+				$execute = false;
+				trigger_error('Database::select(): Conditions/Where clause supplied must be an array', E_USER_WARNING);
+			}
 
-            // Order
-            if (!empty($options['order'])) {
-                if (is_array($options['order'])) {
-                    $orders = array();
-                    foreach ($options['order'] as $column => $dir) {
-                        $orders[] = $this->backtick($column) ." ". mb_strtoupper($dir);
-                    }
-                    
-                    $order = implode(', ', $orders);
-                    $sql .= " ORDER BY ". $order;
+			$sql .= " WHERE ". $this->_formatConditions($this->_data[$dataBit]['conditions']);
+		}
 
-                } else if ($options['order'] == 'RAND()') {
-                    $sql .= " ORDER BY RAND()";
-                }
-            }
+		// Order
+		if (!empty($options['order'])) {
+			if (is_array($options['order'])) {
+				$orders = array();
+				foreach ($options['order'] as $column => $dir) {
+					$orders[] = $this->backtick($column) ." ". mb_strtoupper($dir);
+				}
 
-            // Group
-            if (!empty($options['group'])) {
-                if (is_array($options['group'])) {
-                    $groups = array();
-                    foreach ($options['group'] as $group) {
-                        $groups[] = $this->backtick($group);
-                    }
-                    
-                    $group = implode(', ', $groups);
-                } else {
-                    $group = $this->backtick($options['group']);
-                }
+				$order = implode(', ', $orders);
+				$sql .= " ORDER BY ". $order;
 
-                $sql .= " GROUP BY ". $group;
-            }
+			} else if ($options['order'] == 'RAND()') {
+				$sql .= " ORDER BY RAND()";
+			}
+		}
 
-            // Limit, offset
-            if ($finder == 'first') {
-                $options['limit'] = 1;
-                $options['offset'] = null;
-            }
+		// Group
+		if (!empty($options['group'])) {
+			if (is_array($options['group'])) {
+				$groups = array();
+				foreach ($options['group'] as $group) {
+					$groups[] = $this->backtick($group);
+				}
 
-            if (isset($options['limit']) && is_int($options['limit'])) {
-                $sql .= " LIMIT ";
+				$group = implode(', ', $groups);
+			} else {
+				$group = $this->backtick($options['group']);
+			}
 
-                if (isset($options['offset']) && is_int($options['offset'])) {
-                    $sql .= ":offset:,";
-                    $this->addBind($dataBit, 'offset', $options['offset']);
-                }
+			$sql .= " GROUP BY ". $group;
+		}
 
-                $sql .= ":limit:";
-                $this->addBind($dataBit, 'limit', $options['limit']);
-            }
+		// Limit, offset
+		if ($finder == 'first') {
+			$options['limit'] = 1;
+			$options['offset'] = null;
+		}
 
-            // Execute query and return results
-            if ($execute === true) {
-                if (!isset($this->_data[$dataBit]['binds'])) {
-                    $this->_data[$dataBit]['binds'] = array();
-                }
+		if (isset($options['limit']) && is_int($options['limit'])) {
+			$sql .= " LIMIT ";
 
-                $sql = $this->bind($sql, $this->_data[$dataBit]['binds']);
-                $query = $this->execute($sql, $dataBit);
+			if (isset($options['offset']) && is_int($options['offset'])) {
+				$sql .= ":offset:,";
+				$this->addBind($dataBit, 'offset', $options['offset']);
+			}
 
-                if ($finder == 'count') {
-                    if ($fetch = $this->fetch($query)) {
-                        if ($this->_asObject === true) {
-                            return $fetch->count;
-                        } else {
-                            return $fetch['count'];
-                        }
-                    }
-                    
-                } else if ($finder == 'first') {
-                    return $this->fetch($query);
+			$sql .= ":limit:";
+			$this->addBind($dataBit, 'limit', $options['limit']);
+		}
 
-                } else {
-                    $rows = array();
-                    while ($row = $this->fetchAll($query)) {
-                        $rows[] = $row;
-                    }
+		// Execute query and return results
+		if ($execute === true) {
+			if (!isset($this->_data[$dataBit]['binds'])) {
+				$this->_data[$dataBit]['binds'] = array();
+			}
 
-                    return $rows;
-                }
-            }
-        }
+			$sql = $this->bind($sql, $this->_data[$dataBit]['binds']);
+			$query = $this->execute($sql, $dataBit);
 
-        return;
+			if ($finder == 'count') {
+				if ($fetch = $this->fetch($query)) {
+					if ($this->_asObject === true) {
+						return $fetch->count;
+					} else {
+						return $fetch['count'];
+					}
+				}
+
+			} else if ($finder == 'first') {
+				return $this->fetch($query);
+
+			} else {
+				$rows = array();
+				while ($row = $this->fetchAll($query)) {
+					$rows[] = $row;
+				}
+
+				return $rows;
+			}
+		}
+
+		return false;
     }
 	
     /**
@@ -980,14 +962,14 @@ class Databasic {
      * @return boolean
      */
     public function truncate($tableName) {
-        if (!empty($tableName)) {
-            $dataBit = microtime();
-            $this->_startLoadTime($dataBit);
+        if (empty($tableName)) {
+			return false;
+		}
 
-            return $this->execute("TRUNCATE TABLE ". $this->backtick($tableName), $dataBit);
-        }
+		$dataBit = microtime();
+		$this->_startLoadTime($dataBit);
 
-        return;
+		return $this->execute("TRUNCATE TABLE ". $this->backtick($tableName), $dataBit);
     }
 
     /**
@@ -1000,38 +982,21 @@ class Databasic {
      * @param int $limit
      * @return result
      */
-    public function update($tableName, $columns, $conditions, $limit = 1) {
-        if (!empty($tableName) && !empty($columns) && !empty($conditions)) {
-            $execute = true;
-            $dataBit = microtime();
-            $this->_startLoadTime($dataBit);
-            $this->addBind($dataBit, 'limit', intval($limit));
+    public function update($tableName, array $columns, array $conditions, $limit = 1) {
+        if (empty($tableName) || empty($columns) || empty($conditions)) {
+			return false;
+		}
 
-            // Create columns => value
-            if (is_array($columns)) {
-                $this->_buildFields($dataBit, $columns, 'update');
-            } else {
-                $execute = false;
-                trigger_error('Database::update(): Columns/Fields supplied must be an array', E_USER_WARNING);
-            }
+		$dataBit = microtime();
+		$this->addBind($dataBit, 'limit', (int) $limit);
+		$this->_startLoadTime($dataBit);
+		$this->_buildFields($dataBit, $columns, 'update');
+		$this->_buildConditions($dataBit, $conditions);
 
-            // Build the where clause
-            if (is_array($conditions)) {
-                $this->_buildConditions($dataBit, $conditions);
-            } else {
-                $execute = false;
-                trigger_error('Database::update(): Conditions/Where clause supplied must be an array', E_USER_WARNING);
-            }
+		$sql = "UPDATE ". $this->backtick($tableName) ." SET ". implode(', ', $this->_data[$dataBit]['fields']) ." WHERE ". $this->_formatConditions($this->_data[$dataBit]['conditions']) ." LIMIT :limit:";
+		$sql = $this->bind($sql, $this->_data[$dataBit]['binds']);
 
-            if ($execute === true) {
-                $sql = "UPDATE ". $this->backtick($tableName) ." SET ". implode(', ', $this->_data[$dataBit]['fields']) ." WHERE ". $this->_formatConditions($this->_data[$dataBit]['conditions']) ." LIMIT :limit:";
-                $sql = $this->bind($sql, $this->_data[$dataBit]['binds']);
-
-                return $this->execute($sql, $dataBit);
-            }
-        }
-
-        return;
+		return $this->execute($sql, $dataBit);
     }
 	
     /**
@@ -1172,7 +1137,7 @@ class Databasic {
      * @return string
      */
     protected function _encode($value) {
-        return strval(htmlentities(strip_tags($value)));
+        return (string) htmlentities(strip_tags($value));
     }
 	
     /**
@@ -1184,41 +1149,41 @@ class Databasic {
      */
     protected function _encodeMethod($value) {
         if (mb_strtoupper($value) == $value && mb_substr($value, -2) == '()') {
-            return strval($value);
-        } else {
-            $function = mb_substr($value, 0, mb_strpos($value, '('));
-            preg_match('/^[_A-Z0-9]+\((.*)\)/', $value, $matches);
-
-            if (!empty($matches)) {
-                $params = array_map('trim', explode(',', $matches[1]));
-                $cleaned = array();
-
-                foreach ($params as $param) {
-                    if (mb_substr($param, 0, 1) == "'" && mb_substr($param, -1) == "'") {
-                        $param = trim($param, "'");
-
-                        if (empty($param)) {
-                            $param = "''";
-                        } else {
-                            $param = "'". $this->clean($param) ."'";
-                        }
-
-                    } else {
-                        if (is_int($param)) {
-                            $param = intval($this->clean($param));
-                        } else {
-                            $param = $this->backtick($param);
-                        }
-                    }
-
-                    $cleaned[] = $param;
-                }
-
-                return strval($function) ."(". implode(', ', $cleaned) .")";
-            } else {
-                return strval($function) ."()";
-            }
+            return (string) $value;
         }
+
+		$function = mb_substr($value, 0, mb_strpos($value, '('));
+		preg_match('/^[_A-Z0-9]+\((.*)\)/', $value, $matches);
+
+		if (empty($matches)) {
+			return (string) $function ."()";
+		}
+
+		$params = array_map('trim', explode(',', $matches[1]));
+		$cleaned = array();
+
+		foreach ($params as $param) {
+			if (mb_substr($param, 0, 1) == "'" && mb_substr($param, -1) == "'") {
+				$param = trim($param, "'");
+
+				if (empty($param)) {
+					$param = "''";
+				} else {
+					$param = "'". $this->clean($param) ."'";
+				}
+
+			} else {
+				if (is_int($param)) {
+					$param = intval($this->clean($param));
+				} else {
+					$param = $this->backtick($param);
+				}
+			}
+
+			$cleaned[] = $param;
+		}
+
+		return (string) $function ."(". implode(', ', $cleaned) .")";
     }
 	
     /**
@@ -1289,7 +1254,7 @@ class Databasic {
      * @return void
      */
     protected function _startLoadTime($dataBit) {
-        if ($this->_debug === true) {
+        if ($this->_debug) {
             $time = explode(' ', $dataBit);
             $time = $time[1] + $time[0];
             $this->_data[$dataBit]['start'] = $time;
@@ -1304,7 +1269,7 @@ class Databasic {
      * @return int
      */
     protected function _endLoadTime($dataBit) {
-        if ($this->_debug === true) {
+        if ($this->_debug) {
             $time = explode(' ', microtime());
             $time = $time[1] + $time[0];
 
