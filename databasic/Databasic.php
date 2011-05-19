@@ -31,79 +31,79 @@ class Databasic {
     /**
      * If you want data returned as an object instead of an array.
      *
-     * @access private
+     * @access protected
      * @var boolean
      */
-    private $__asObject = false;
+    protected $_asObject = false;
 
     /**
      * Holds data for SQLs and binds.
      *
-     * @access private
+     * @access protected
      * @var array
      */
-    private $__data = array();
+    protected $_data = array();
 
     /**
      * Contains all database connection information.
      *
-     * @access private
+     * @access protected
      * @var array
      * @static
      */
-    private static $__dbConfigs = array();
+    protected static $_dbConfigs = array();
 
     /**
      * The current DB config for the instance.
      *
-     * @access private
+     * @access protected
      * @var array
      */
-    private $__db = array();
+    protected $_db = array();
 
     /**
      * If enabled, logs all queries and executions.
      *
-     * @access private
+     * @access protected
      * @var boolean
      */
-    private $__debug = true;
+    protected $_debug = true;
 
     /**
      * Number of successful queries executed.
      *
-     * @access private
+     * @access protected
      * @var int
      */
-    private $__executed = 0;
+    protected $_executed = 0;
 
     /**
      * Contains the database instance.
      *
-     * @access private
+     * @access protected
      * @var array
      * @static
      */
-    private static $__instance = array();
+    protected static $_instance = array();
 
     /**
      * A list of all queries being processed on a page.
      *
-     * @access private
+     * @access protected
      * @var array
      */
-    private $__queries = array();
+    protected $_queries = array();
 
     /**
      * Connects to the database on class initialize; use getInstance().
      *
      * @access private
-     * @param array $dbCfg
+     * @param array $db
      * @return void
      */
-    private function __construct($dbCfg) {
-        $this->__db = $dbCfg;
-        $this->__connect();
+    private function __construct($db) {
+        $this->_db = $db;
+        $this->_connect();
     }
 	
     /**
@@ -116,11 +116,11 @@ class Databasic {
      * @return string
      */
     public function addBind($dataBit, $key, $value) {
-        if (isset($this->__data[$dataBit]['binds'][':'. $key .':'])) {
-            $key .= count($this->__data[$dataBit]['binds']);
+        if (isset($this->_data[$dataBit]['binds'][':'. $key .':'])) {
+            $key .= count($this->_data[$dataBit]['binds']);
         }
 
-        $this->__data[$dataBit]['binds'][':'. trim($key, ':') .':'] = $value;
+        $this->_data[$dataBit]['binds'][':'. trim($key, ':') .':'] = $value;
         return $key;
     }
 
@@ -133,7 +133,7 @@ class Databasic {
      */
     public function asObject($status = false) {
         if (is_bool($status)) {
-            $this->__asObject = $status;
+            $this->_asObject = $status;
         }
     }
 	
@@ -217,7 +217,7 @@ class Databasic {
     public function columns($tableName, $explicit = true) {
         if (!empty($tableName)) {
             $dataBit = microtime();
-            $this->__startLoadTime($dataBit);
+            $this->_startLoadTime($dataBit);
 
             $query = $this->execute("SHOW FULL COLUMNS FROM ". $this->backtick($tableName), $dataBit);
             $columns = array();
@@ -308,7 +308,7 @@ class Databasic {
         // Build schema
         if (!empty($schema)) {
             $dataBit = microtime();
-            $this->__startLoadTime($dataBit);
+            $this->_startLoadTime($dataBit);
 
             $sql[] = "CREATE TABLE IF NOT EXISTS ". $this->backtick($tableName) ." (";
 
@@ -416,12 +416,12 @@ class Databasic {
                         $column .= " DEFAULT '". $default ."'";
 
                     } else if (!empty($data['options']['default']) && !$data['options']['auto_increment']) {
-                        $column .= " DEFAULT '". $this->__encode($data['options']['default']) ."'";
+                        $column .= " DEFAULT '". $this->_encode($data['options']['default']) ."'";
                     }
 
                     // Comment
                     if (!empty($data['options']['comment'])) {
-                        $column .= " COMMENT '". $this->__encode($data['options']['comment']) ."'";
+                        $column .= " COMMENT '". $this->_encode($data['options']['comment']) ."'";
                     }
 
                     // Keys
@@ -475,11 +475,11 @@ class Databasic {
                 } else if ($field == 'charset') {
                     $closer .= " DEFAULT CHARSET=". $setting;
                 } else if ($field == 'comment') {
-                    $closer .= " COMMENT='". $this->__encode($setting) ."'";
+                    $closer .= " COMMENT='". $this->_encode($setting) ."'";
                 } else if ($field == 'increment') {
                     $closer .= " AUTO_INCREMENT=". intval($setting);
                 } else if ($field == 'collate') {
-                    $closer .= " COLLATE=". $this->__encode($setting);
+                    $closer .= " COLLATE=". $this->_encode($setting);
                 }
             }
             $closer .= ";";
@@ -500,7 +500,7 @@ class Databasic {
      */
     public function debug($status = true) {
         if (is_bool($status)) {
-            $this->__debug = $status;
+            $this->_debug = $status;
         }
     }
 	
@@ -517,17 +517,17 @@ class Databasic {
         if (!empty($tableName) && !empty($conditions)) {
             $execute = true;
             $dataBit = microtime();
-            $this->__startLoadTime($dataBit);
+            $this->_startLoadTime($dataBit);
 
             if (is_array($conditions)) {
-                $this->__buildConditions($dataBit, $conditions);
+                $this->_buildConditions($dataBit, $conditions);
             } else {
                 $execute = false;
                 trigger_error('Database::delete(): Conditions/Where clause supplied must be an array', E_USER_WARNING);
             }
 
             if ($execute === true) {
-                $sql = "DELETE FROM ". $this->backtick($tableName) ." WHERE ". $this->__formatConditions($this->__data[$dataBit]['conditions']);
+                $sql = "DELETE FROM ". $this->backtick($tableName) ." WHERE ". $this->_formatConditions($this->_data[$dataBit]['conditions']);
 
                 // Limit, offset
                 if (isset($limit) && is_int($limit)) {
@@ -535,7 +535,7 @@ class Databasic {
                     $this->addBind($dataBit, 'limit', $limit);
                 }
 
-                $sql = $this->bind($sql, $this->__data[$dataBit]['binds']);
+                $sql = $this->bind($sql, $this->_data[$dataBit]['binds']);
                 return $this->execute($sql, $dataBit);
             }
         }
@@ -553,7 +553,7 @@ class Databasic {
     public function describe($tableName) {
         if (!empty($tableName)) {
             $dataBit = microtime();
-            $this->__startLoadTime($dataBit);
+            $this->_startLoadTime($dataBit);
             $rows = array();
 
             if ($query = $this->execute("DESCRIBE ". $this->backtick($tableName), $dataBit)) {
@@ -578,7 +578,7 @@ class Databasic {
     public function drop($tableName) {
         if (!empty($tableName)) {
             $dataBit = microtime();
-            $this->__startLoadTime($dataBit);
+            $this->_startLoadTime($dataBit);
 
             return $this->execute("DROP TABLE ". $this->backtick($tableName), $dataBit);
         }
@@ -597,7 +597,7 @@ class Databasic {
     public function execute($sql, $dataBit = null) {
         if (empty($dataBit)) {
             $dataBit = microtime();
-            $this->__startLoadTime($dataBit);
+            $this->_startLoadTime($dataBit);
         }
 
         if (!$this->sql->ping()) {
@@ -610,19 +610,19 @@ class Databasic {
             $failure = $this->sql->error .'. ('. $this->sql->errno .')';
             trigger_error('Database::execute(): '. $failure, E_USER_ERROR);
         } else {
-            ++$this->__executed;
+            ++$this->_executed;
         }
 
-        if ($this->__debug === true) {
-            $this->__queries[] = array(
+        if ($this->_debug === true) {
+            $this->_queries[] = array(
                 'statement' => $sql,
                 'executed'  => isset($failure) ? $failure : 'true',
-                'took'		=> $this->__endLoadTime($dataBit) .' seconds',
+                'took'		=> $this->_endLoadTime($dataBit) .' seconds',
                 'affected'	=> $this->getAffected() .' rows'
             );
         }
 
-        unset($this->__data[$dataBit]);
+        unset($this->_data[$dataBit]);
         return $result;
     }
 	
@@ -647,7 +647,7 @@ class Databasic {
      * @return array
      */
     public function fetchAll($query) {
-        if ($this->__asObject === true) {
+        if ($this->_asObject === true) {
             $result = $query->fetch_object();
         } else {
             $result = $query->fetch_assoc();
@@ -673,7 +673,7 @@ class Databasic {
      * @return int
      */
     public function getExecuted() {
-        return intval($this->__executed);
+        return intval($this->_executed);
     }
 	
     /**
@@ -685,11 +685,11 @@ class Databasic {
      * @static
      */
     public static function getInstance($useDb = 'default') {
-        if (!isset(self::$__instance[$useDb])){
-            self::$__instance[$useDb] = new Database(self::$__dbConfigs[$useDb]);
+        if (!isset(self::$_instance[$useDb])){
+            self::$_instance[$useDb] = new Databasic(self::$_dbConfigs[$useDb]);
         }
 
-        return self::$__instance[$useDb];
+        return self::$_instance[$useDb];
     }
 	
     /**
@@ -709,7 +709,7 @@ class Databasic {
      * @return array
      */
     public function getQueries() {
-        return $this->__queries;
+        return $this->_queries;
     }
 	
     /**
@@ -724,18 +724,18 @@ class Databasic {
         if (!empty($tableName) && !empty($columns)) {
             $execute = true;
             $dataBit = microtime();
-            $this->__startLoadTime($dataBit);
+            $this->_startLoadTime($dataBit);
 
             if (is_array($columns)) {
-                $this->__buildFields($dataBit, $columns, 'insert');
+                $this->_buildFields($dataBit, $columns, 'insert');
             } else {
                 $execute = false;
                 trigger_error('Database::insert(): Columns/Fields supplied must be an array', E_USER_WARNING);
             }
 
             if ($execute === true) {
-                $sql = "INSERT INTO ". $this->backtick($tableName) ." (". implode(', ', $this->__data[$dataBit]['fields']) .") VALUES (". implode(', ', $this->__data[$dataBit]['values']) .")";
-                $sql = $this->bind($sql, $this->__data[$dataBit]['binds']);
+                $sql = "INSERT INTO ". $this->backtick($tableName) ." (". implode(', ', $this->_data[$dataBit]['fields']) .") VALUES (". implode(', ', $this->_data[$dataBit]['values']) .")";
+                $sql = $this->bind($sql, $this->_data[$dataBit]['binds']);
 
                 if ($query = $this->execute($sql, $dataBit)) {
                     return $this->getLastInsertId();
@@ -755,7 +755,7 @@ class Databasic {
      */
     public function optimize($tableName = '') {
         $dataBit = microtime();
-        $this->__startLoadTime($dataBit);
+        $this->_startLoadTime($dataBit);
 
         if (empty($tableName)) {
             $tables = $this->tables();
@@ -783,7 +783,7 @@ class Databasic {
         if (!empty($tableName)) {
             $execute = true;
             $dataBit = microtime();
-            $this->__startLoadTime($dataBit);
+            $this->_startLoadTime($dataBit);
             $tableNames = array();
 
             if (empty($finder)) {
@@ -812,8 +812,8 @@ class Databasic {
                 $fields = "COUNT(*) AS `count`";
             } else {
                 if (!empty($options['fields']) && is_array($options['fields'])) {
-                    $this->__buildFields($dataBit, $options['fields'], 'select');
-                    $fields = implode(', ', $this->__data[$dataBit]['fields']);
+                    $this->_buildFields($dataBit, $options['fields'], 'select');
+                    $fields = implode(', ', $this->_data[$dataBit]['fields']);
 
                 } else {
                     if (count($tableNames) > 1) {
@@ -834,13 +834,13 @@ class Databasic {
             // Conditions
             if (!empty($options['conditions'])) {
                 if (is_array($options['conditions'])) {
-                    $this->__buildConditions($dataBit, $options['conditions']);
+                    $this->_buildConditions($dataBit, $options['conditions']);
                 } else {
                     $execute = false;
                     trigger_error('Database::select(): Conditions/Where clause supplied must be an array', E_USER_WARNING);
                 }
 
-                $sql .= " WHERE ". $this->__formatConditions($this->__data[$dataBit]['conditions']);
+                $sql .= " WHERE ". $this->_formatConditions($this->_data[$dataBit]['conditions']);
             }
 
             // Order
@@ -895,16 +895,16 @@ class Databasic {
 
             // Execute query and return results
             if ($execute === true) {
-                if (!isset($this->__data[$dataBit]['binds'])) {
-                    $this->__data[$dataBit]['binds'] = array();
+                if (!isset($this->_data[$dataBit]['binds'])) {
+                    $this->_data[$dataBit]['binds'] = array();
                 }
 
-                $sql = $this->bind($sql, $this->__data[$dataBit]['binds']);
+                $sql = $this->bind($sql, $this->_data[$dataBit]['binds']);
                 $query = $this->execute($sql, $dataBit);
 
                 if ($finder == 'count') {
                     if ($fetch = $this->fetch($query)) {
-                        if ($this->__asObject === true) {
+                        if ($this->_asObject === true) {
                             return $fetch->count;
                         } else {
                             return $fetch['count'];
@@ -941,7 +941,7 @@ class Databasic {
      * @static
      */
     public static function store($db, $server, $database, $username, $password) {
-        self::$__dbConfigs[$db] = array(
+        self::$_dbConfigs[$db] = array(
             'server'	=> $server,
             'database'	=> $database,
             'username'	=> $username,
@@ -960,13 +960,13 @@ class Databasic {
      */
     public function tables() {
         $dataBit = microtime();
-        $this->__startLoadTime($dataBit);
+        $this->_startLoadTime($dataBit);
         
         $query = $this->execute('SHOW TABLES', $dataBit);
         $tables = array();
 
         while ($table = $this->fetchAll($query)) {
-            $tables[] = $table['Tables_in_'. $this->__db['database']];
+            $tables[] = $table['Tables_in_'. $this->_db['database']];
         }
 
         return $tables;
@@ -982,7 +982,7 @@ class Databasic {
     public function truncate($tableName) {
         if (!empty($tableName)) {
             $dataBit = microtime();
-            $this->__startLoadTime($dataBit);
+            $this->_startLoadTime($dataBit);
 
             return $this->execute("TRUNCATE TABLE ". $this->backtick($tableName), $dataBit);
         }
@@ -1004,12 +1004,12 @@ class Databasic {
         if (!empty($tableName) && !empty($columns) && !empty($conditions)) {
             $execute = true;
             $dataBit = microtime();
-            $this->__startLoadTime($dataBit);
+            $this->_startLoadTime($dataBit);
             $this->addBind($dataBit, 'limit', intval($limit));
 
             // Create columns => value
             if (is_array($columns)) {
-                $this->__buildFields($dataBit, $columns, 'update');
+                $this->_buildFields($dataBit, $columns, 'update');
             } else {
                 $execute = false;
                 trigger_error('Database::update(): Columns/Fields supplied must be an array', E_USER_WARNING);
@@ -1017,15 +1017,15 @@ class Databasic {
 
             // Build the where clause
             if (is_array($conditions)) {
-                $this->__buildConditions($dataBit, $conditions);
+                $this->_buildConditions($dataBit, $conditions);
             } else {
                 $execute = false;
                 trigger_error('Database::update(): Conditions/Where clause supplied must be an array', E_USER_WARNING);
             }
 
             if ($execute === true) {
-                $sql = "UPDATE ". $this->backtick($tableName) ." SET ". implode(', ', $this->__data[$dataBit]['fields']) ." WHERE ". $this->__formatConditions($this->__data[$dataBit]['conditions']) ." LIMIT :limit:";
-                $sql = $this->bind($sql, $this->__data[$dataBit]['binds']);
+                $sql = "UPDATE ". $this->backtick($tableName) ." SET ". implode(', ', $this->_data[$dataBit]['fields']) ." WHERE ". $this->_formatConditions($this->_data[$dataBit]['conditions']) ." LIMIT :limit:";
+                $sql = $this->bind($sql, $this->_data[$dataBit]['binds']);
 
                 return $this->execute($sql, $dataBit);
             }
@@ -1037,25 +1037,25 @@ class Databasic {
     /**
      * Builds the data array for the specific SQL.
      *
-     * @access private
+     * @access protected
      * @param int $dataBit
      * @param array $columns
      * @param string $type
      * @return void
      */
-    private function __buildFields($dataBit, $columns, $type = 'select') {
+    protected function _buildFields($dataBit, $columns, $type = 'select') {
         switch ($type) {
             case 'update':
                 foreach ($columns as $column => $value) {
-                    $this->__data[$dataBit]['fields'][] = $this->backtick($column) ." = ". $this->__formatType($value, $column);
+                    $this->_data[$dataBit]['fields'][] = $this->backtick($column) ." = ". $this->_formatType($value, $column);
                     $this->addBind($dataBit, $column, $value);
                 }
             break;
 
             case 'insert':
                 foreach ($columns as $column => $value) {
-                    $this->__data[$dataBit]['fields'][] = $this->backtick($column);
-                    $this->__data[$dataBit]['values'][] = $this->__formatType($value, $column);
+                    $this->_data[$dataBit]['fields'][] = $this->backtick($column);
+                    $this->_data[$dataBit]['values'][] = $this->_formatType($value, $column);
                     $this->addBind($dataBit, $column, $value);
                 }
             break;
@@ -1067,13 +1067,13 @@ class Databasic {
                             $column[$ci] = $tableAlias .'.'. $col;
                         }
 
-                        $this->__buildFields($dataBit, $column, 'select');
+                        $this->_buildFields($dataBit, $column, 'select');
                     } else {
                         if (strpos(strtoupper($column), ' AS ') !== false) {
                             $parts = explode('AS', str_replace(' as ', ' AS ', $column));
-                            $this->__data[$dataBit]['fields'][] = $this->backtick(trim($parts[0])) .' AS '. $this->backtick(trim($parts[1]));
+                            $this->_data[$dataBit]['fields'][] = $this->backtick(trim($parts[0])) .' AS '. $this->backtick(trim($parts[1]));
                         } else {
-                            $this->__data[$dataBit]['fields'][] = $this->backtick($column);
+                            $this->_data[$dataBit]['fields'][] = $this->backtick($column);
                         }
                     }
                 }
@@ -1084,18 +1084,18 @@ class Databasic {
     /**
      * Builds the data array conditions for the SQL.
      *
-     * @access private
+     * @access protected
      * @param int $dataBit
      * @param array $conditions
      * @param string $join
      * @return void
      */
-    private function __buildConditions($dataBit, $conditions, $join = '') {
+    protected function _buildConditions($dataBit, $conditions, $join = '') {
         $data = array();
 
         foreach ($conditions as $column => $clause) {
             if (is_array($clause) && (in_array($column, array('OR', 'AND')) || !empty($join))) {
-                $data[$column] = $this->__buildConditions($dataBit, $clause, $column);
+                $data[$column] = $this->_buildConditions($dataBit, $clause, $column);
 
             } else {
                 $operators = array('=', '!=', '>', '>=', '<=', '<', '<>', 'LIKE', 'NOT LIKE', 'IS NULL', 'IS NOT NULL', 'IN', 'NOT IN');
@@ -1119,7 +1119,7 @@ class Databasic {
                     $values = array();
                     foreach ($value as $x => $val) {
                         $key = $this->addBind($dataBit, 'where_'. $x . $column, $val);
-                        $values[] = $this->__formatType($val, trim($key, ':'));
+                        $values[] = $this->_formatType($val, trim($key, ':'));
                     }
 
                     $valueClean = '('. implode(', ', $values) .')';
@@ -1134,14 +1134,14 @@ class Databasic {
 
                 } else {
                     $key = $this->addBind($dataBit, 'where_'. $column, $value);
-                    $valueClean = $this->__formatType($value, trim($key, ':'));
+                    $valueClean = $this->_formatType($value, trim($key, ':'));
                 }
 
                 $data[] = $this->backtick($column) ." ". $operator ." ". $valueClean;
             }
         }
 
-        $this->__data[$dataBit]['conditions'] = $data;
+        $this->_data[$dataBit]['conditions'] = $data;
         return $data;
     }
 
@@ -1152,37 +1152,37 @@ class Databasic {
      * @param string $useDb
      * @return void
      */
-    private function __connect() {
-        $this->__queries = array();
-        $this->__executed = 0;
-        $this->sql = new mysqli($this->__db['server'], $this->__db['username'], $this->__db['password'], $this->__db['database']);
+    protected function _connect() {
+        $this->_queries = array();
+        $this->_executed = 0;
+        $this->sql = new mysqli($this->_db['server'], $this->_db['username'], $this->_db['password'], $this->_db['database']);
 
         if (mysqli_connect_error()) {
             trigger_error('Database::connect(): '. mysqli_connect_errno() .'. ('. mysqli_connect_error() .')', E_USER_ERROR);
         }
 
-        unset($this->__db['password']);
+        unset($this->_db['password']);
     }
 	
     /**
      * Strips html and encodes the string.
      *
-     * @access private
+     * @access protected
      * @param string $value
      * @return string
      */
-    private function __encode($value) {
+    protected function _encode($value) {
         return strval(htmlentities(strip_tags($value)));
     }
 	
     /**
      * If a mysql function is used, encode it!
      *
-     * @access private
+     * @access protected
      * @param string $value
      * @return string
      */
-    private function __encodeMethod($value) {
+    protected function _encodeMethod($value) {
         if (mb_strtoupper($value) == $value && mb_substr($value, -2) == '()') {
             return strval($value);
         } else {
@@ -1224,13 +1224,13 @@ class Databasic {
     /**
      * Determines the column values type.
      *
-     * @access private
+     * @access protected
      * @param mixed $value
      * @param string $column
      * @param string $prefix
      * @return mixed
      */
-    private function __formatType($value, $column, $prefix = '') {
+    protected function _formatType($value, $column, $prefix = '') {
         // NULL
         if (($value === NULL || $value == 'NULL') && $value !== 0) {
             $cleanValue = 'NULL';
@@ -1241,7 +1241,7 @@ class Databasic {
 
         // NOW(), etc
         } else if (preg_match('/^[_A-Z0-9]+\((.*)\)/', $value)) {
-            $cleanValue = $this->__encodeMethod($value);
+            $cleanValue = $this->_encodeMethod($value);
 
         // Boolean
         } else if (is_bool($value)) {
@@ -1262,17 +1262,17 @@ class Databasic {
     /**
      * Formats the joins for the conditions.
      *
-     * @access private
+     * @access protected
      * @param array $conditions
      * @param string $operator
      * @return string
      */
-    private function __formatConditions($conditions, $operator = 'AND') {
+    protected function _formatConditions($conditions, $operator = 'AND') {
         $clean = array();
 
         foreach ($conditions as $op => $clause) {
             if (is_array($clause)) {
-                $clean[] = '('. $this->__formatConditions($clause, $op) .')';
+                $clean[] = '('. $this->_formatConditions($clause, $op) .')';
             } else {
                 $clean[] = $clause;
             }
@@ -1284,37 +1284,37 @@ class Databasic {
     /**
      * Starts the timer for the query execution time.
      *
-     * @access private
+     * @access protected
      * @param int $dataBit
      * @return void
      */
-    private function __startLoadTime($dataBit) {
-        if ($this->__debug === true) {
+    protected function _startLoadTime($dataBit) {
+        if ($this->_debug === true) {
             $time = explode(' ', $dataBit);
             $time = $time[1] + $time[0];
-            $this->__data[$dataBit]['start'] = $time;
+            $this->_data[$dataBit]['start'] = $time;
         }
     }
 	
     /**
      * Gets the final time in how long the query took.
      *
-     * @access private
+     * @access protected
      * @param int $dataBit
      * @return int
      */
-    private function __endLoadTime($dataBit) {
-        if ($this->__debug === true) {
+    protected function _endLoadTime($dataBit) {
+        if ($this->_debug === true) {
             $time = explode(' ', microtime());
             $time = $time[1] + $time[0];
 
-            return ($time - $this->__data[$dataBit]['start']);
+            return ($time - $this->_data[$dataBit]['start']);
         }
     }
 
     /**
      * Disable clone from being used.
      */
-    private function __clone() { }
+    protected function __clone() { }
 	
 }
