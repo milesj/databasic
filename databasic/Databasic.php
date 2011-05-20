@@ -84,7 +84,7 @@ class Databasic {
      * @var array
      * @static
      */
-    protected static $_instance = array();
+    protected static $_instances = array();
 
     /**
      * A list of all queries being processed on a page.
@@ -316,8 +316,6 @@ class Databasic {
             'increment'	=> 1
         );
 
-		$sql[] = "CREATE TABLE IF NOT EXISTS ". $this->backtick($tableName) ." (";
-
 		foreach ($schema as $field => $data) {
 			$column = "\t". $this->backtick($field);
 
@@ -341,41 +339,41 @@ class Databasic {
 			// Integers
 			if ($data['type'] == 'integer' || $data['type'] == 'int') {
 				if (empty($data['length'])) {
-					$column .= " INT(10)";
+					$column .= ' INT(10)';
 				} else {
 					if ($data['length'] <= 3) {
-						$column .= " TINYINT(3)";
+						$column .= ' TINYINT(3)';
 					} else if ($data['length'] <= 5) {
-						$column .= " SMALLINT(5)";
+						$column .= ' SMALLINT(5)';
 					} else if ($data['length'] <= 7) {
-						$column .= " MEDIUMINT(7)";
+						$column .= ' MEDIUMINT(7)';
 					} else if ($data['length'] <= 10) {
-						$column .= " INT(10)";
+						$column .= ' INT(10)';
 					} else {
-						$column .= " BIGINT(25)";
+						$column .= ' BIGINT(25)';
 					}
 				}
 
 				// Unsigned, Zerofill
-				if ($data['options']['unsigned'] === true) {
-					$column .= " UNSIGNED";
+				if ($data['options']['unsigned']) {
+					$column .= ' UNSIGNED';
 
-					if ($data['options']['zerofill'] === true) {
-						$column .= " ZEROFILL";
+					if ($data['options']['zerofill']) {
+						$column .= ' ZEROFILL';
 					}
 				}
 
 				// Auto increment
-				if ($data['options']['auto_increment'] === true) {
-					$column .= " AUTO_INCREMENT";
+				if ($data['options']['auto_increment']) {
+					$column .= ' AUTO_INCREMENT';
 				}
 
 			// Strings
 			} else if ($data['type'] == 'string' || $data['type'] == 'text') {
 				if ($data['length'] <= 255) {
-					$column .= " VARCHAR(". $data['length'] .")";
+					$column .= ' VARCHAR('. $data['length'] .')';
 				} else {
-					$column .= " TEXT";
+					$column .= ' TEXT';
 				}
 
 			// Enum
@@ -392,24 +390,24 @@ class Databasic {
 						$opts[] = "'". $opt ."'";
 					}
 
-					$column .= " ENUM(". implode(', ', $opts) .")";
+					$column .= ' ENUM('. implode(', ', $opts) .')';
 				}
 
 			// Datetime
 			} else if ($data['type'] == 'datetime' || $data['type'] == 'timestamp' || $data['type'] == 'date' || $data['type'] == 'time' || $data['type'] == 'float' || $data['type'] == 'blob') {
-				$column .= " ". strtoupper($data['type']);
+				$column .= ' '. strtoupper($data['type']);
 
 			// Year
 			} else if ($data['type'] == 'year') {
-				$column .= " YEAR(4)";
+				$column .= ' YEAR(4)';
 			}
 
 			if (isset($data['type'])) {
 				// Null
-				if (!$data['options']['auto_increment'] && $data['options']['null'] === true) {
-					$column .= " NULL";
+				if (!$data['options']['auto_increment'] && $data['options']['null']) {
+					$column .= ' NULL';
 				} else {
-					$column .= " NOT NULL";
+					$column .= ' NOT NULL';
 				}
 
 				// Default
@@ -419,6 +417,7 @@ class Databasic {
 					} else {
 						$default = $data['enum'][0];
 					}
+
 					$column .= " DEFAULT '". $default ."'";
 
 				} else if (!empty($data['options']['default']) && !$data['options']['auto_increment']) {
@@ -448,8 +447,9 @@ class Databasic {
 		// Add keys
 		if (!empty($keys)) {
 			foreach ($keys as $key => $field) {
+				$keySql = '';
+
 				if ($key == 'index') {
-					$keySql = "";
 					foreach ($field as $i => $index) {
 						$keySql .= "\tKEY ". $this->backtick($index) ." (". $this->backtick($index) .")";
 
@@ -473,27 +473,15 @@ class Databasic {
 			}
 		}
 
-		// Add settings
-		$closer = ")";
-
-		foreach ($settings as $field => $setting) {
-			if ($field == 'engine') {
-				$closer .= " ENGINE=". $setting;
-			} else if ($field == 'charset') {
-				$closer .= " DEFAULT CHARSET=". $setting;
-			} else if ($field == 'comment') {
-				$closer .= " COMMENT='". $this->_encode($setting) ."'";
-			} else if ($field == 'increment') {
-				$closer .= " AUTO_INCREMENT=". (int) $setting;
-			} else if ($field == 'collate') {
-				$closer .= " COLLATE=". $this->_encode($setting);
-			}
-		}
-		
-		$closer .= ";";
-
-		$sql[] = $closer;
-		$sql = implode("\n", $sql);
+		$sql = sprintf("CREATE TABLE IF NOT EXISTS %s (\n%s\n) ENGINE=%s DEFAULT CHARSET=%s COLLATE=%s COMMENT='%s' AUTO_INCREMENT=%d;",
+			$this->backtick($tableName),
+			implode("\n", $sql),
+			$settings['engine'],
+			$settings['charset'],
+			$this->_encode($settings['collate']),
+			$this->_encode($settings['comment']),
+			(int) $settings['increment']
+		);
 
 		return $this->execute($sql, $dataBit);
     }
@@ -656,11 +644,11 @@ class Databasic {
      * @static
      */
     public static function getInstance($db = 'default') {
-        if (!isset(self::$_instance[$db])){
-            self::$_instance[$db] = new Databasic(self::$_dbConfigs[$db]);
+        if (!isset(self::$_instances[$db])){
+            self::$_instances[$db] = new Databasic(self::$_dbConfigs[$db]);
         }
 
-        return self::$_instance[$db];
+        return self::$_instances[$db];
     }
 	
     /**
