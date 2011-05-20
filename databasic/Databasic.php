@@ -724,19 +724,19 @@ class Databasic {
      * @return mixed
      */
     public function select($finder, $tableName, array $options = array()) {
-		$execute = true;
 		$dataBit = $this->_startLoadTime();
 		$tableNames = array();
 
-		if (empty($finder)) {
+		if (!in_array($finder, array('all', 'first', 'count'))) {
 			$finder = 'all';
 		}
 
 		// Table
 		if (is_array($tableName)) {
 			$tables = array();
+			
 			foreach ($tableName as $as => $table) {
-				if (is_int($as)) {
+				if (is_numeric($as)) {
 					$as = $table;
 				}
 
@@ -751,17 +751,18 @@ class Databasic {
 
 		// Fields
 		if ($finder == 'count') {
-			$fields = "COUNT(*) AS `count`";
+			$fields = 'COUNT(*) AS `count`';
 		} else {
-			if (!empty($options['fields']) && is_array($options['fields'])) {
-				$this->_buildFields($dataBit, $options['fields'], 'select');
-				$fields = implode(', ', $this->_data[$dataBit]['fields']);
+			if (!empty($options['fields'])) {
+				$fields = $this->_buildFields($dataBit, $options['fields'], 'select');
+				$fields = implode(', ', $fields['fields']);
 
 			} else {
 				if (count($tableNames) > 1) {
 					$fields = array();
-					foreach ($tableNames as $t) {
-						$fields[] = $t .".*";
+					
+					foreach ($tableNames as $tableName) {
+						$fields[] = $tableName .'.*';
 					}
 
 					$fields = implode(', ', $fields);
@@ -771,43 +772,47 @@ class Databasic {
 			}
 		}
 
-		$sql = "SELECT ". $fields ." FROM ". $table;
+		$sql = sprintf('SELECT %s FROM %s', $fields, $table);
 
 		// Conditions
 		if (!empty($options['conditions'])) {
-			$sql .= " WHERE ". $this->_formatConditions($this->_buildConditions($dataBit, $options['conditions']));
+			$sql .= ' WHERE '. $this->_formatConditions($this->_buildConditions($dataBit, $options['conditions']));
 		}
 
 		// Order
 		if (!empty($options['order'])) {
 			if (is_array($options['order'])) {
 				$orders = array();
+
 				foreach ($options['order'] as $column => $dir) {
 					$orders[] = $this->backtick($column) ." ". mb_strtoupper($dir);
 				}
 
 				$order = implode(', ', $orders);
-				$sql .= " ORDER BY ". $order;
 
 			} else if ($options['order'] == 'RAND()') {
-				$sql .= " ORDER BY RAND()";
+				$order = $options['order'];
 			}
+
+			$sql .= ' ORDER BY '. $order;
 		}
 
 		// Group
 		if (!empty($options['group'])) {
 			if (is_array($options['group'])) {
 				$groups = array();
+				
 				foreach ($options['group'] as $group) {
 					$groups[] = $this->backtick($group);
 				}
 
 				$group = implode(', ', $groups);
+
 			} else {
 				$group = $this->backtick($options['group']);
 			}
 
-			$sql .= " GROUP BY ". $group;
+			$sql .= ' GROUP BY '. $group;
 		}
 
 		// Limit, offset
@@ -816,43 +821,42 @@ class Databasic {
 			$options['offset'] = null;
 		}
 
-		if (isset($options['limit']) && is_int($options['limit'])) {
-			$sql .= " LIMIT ";
+		if (isset($options['limit']) && is_numeric($options['limit'])) {
+			$sql .= ' LIMIT ';
 
-			if (isset($options['offset']) && is_int($options['offset'])) {
-				$sql .= ":offset:,";
-				$this->addBind($dataBit, 'offset', $options['offset']);
+			if (isset($options['offset']) && is_numeric($options['offset'])) {
+				$sql .= ':offset:,';
+				$this->addBind($dataBit, 'offset', (int) $options['offset']);
 			}
 
-			$sql .= ":limit:";
-			$this->addBind($dataBit, 'limit', $options['limit']);
+			$sql .= ':limit:';
+			$this->addBind($dataBit, 'limit', (int) $options['limit']);
 		}
 
 		// Execute query and return results
-		if ($execute === true) {
-			$sql = $this->bind($sql, $this->binds($dataBit));
-			$query = $this->execute($sql, $dataBit);
+		$sql = $this->bind($sql, $this->binds($dataBit));
+		$query = $this->execute($sql, $dataBit);
 
-			if ($finder == 'count') {
-				if ($fetch = $this->fetch($query)) {
-					if ($this->_asObject) {
-						return $fetch->count;
-					} else {
-						return $fetch['count'];
-					}
+		if ($finder == 'count') {
+			if ($fetch = $this->fetch($query)) {
+				if ($this->_asObject) {
+					return $fetch->count;
+				} else {
+					return $fetch['count'];
 				}
-
-			} else if ($finder == 'first') {
-				return $this->fetch($query);
-
-			} else {
-				$rows = array();
-				while ($row = $this->fetchAll($query)) {
-					$rows[] = $row;
-				}
-
-				return $rows;
 			}
+
+		} else if ($finder == 'first') {
+			return $this->fetch($query);
+
+		} else {
+			$rows = array();
+			
+			while ($row = $this->fetchAll($query)) {
+				$rows[] = $row;
+			}
+
+			return $rows;
 		}
 
 		return false;
