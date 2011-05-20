@@ -220,8 +220,7 @@ class Databasic {
      * @return array
      */
     public function columns($tableName, $explicit = true) {
-		$dataBit = microtime();
-		$this->_startLoadTime($dataBit);
+		$dataBit = $this->_startLoadTime();
 
 		$query = $this->execute(sprintf('SHOW FULL COLUMNS FROM %s', $this->backtick($tableName)), $dataBit);
 		$columns = array();
@@ -310,8 +309,7 @@ class Databasic {
             'increment'	=> 1
         );
 
-		$dataBit = microtime();
-		$this->_startLoadTime($dataBit);
+		$dataBit = $this->_startLoadTime();
 
 		$sql[] = "CREATE TABLE IF NOT EXISTS ". $this->backtick($tableName) ." (";
 
@@ -516,8 +514,7 @@ class Databasic {
      * @return mixed
      */
     public function delete($tableName, array $conditions, $limit = 1) {
-		$dataBit = microtime();
-		$this->_startLoadTime($dataBit);
+		$dataBit = $this->_startLoadTime();
 		$this->_buildConditions($dataBit, $conditions);
 
 		$sql = "DELETE FROM ". $this->backtick($tableName) ." WHERE ". $this->_formatConditions($this->_data[$dataBit]['conditions']);
@@ -539,8 +536,7 @@ class Databasic {
      * @return boolean
      */
     public function describe($tableName) {
-		$dataBit = microtime();
-		$this->_startLoadTime($dataBit);
+		$dataBit = $this->_startLoadTime();
 		$rows = array();
 
 		if ($query = $this->execute("DESCRIBE ". $this->backtick($tableName), $dataBit)) {
@@ -560,8 +556,7 @@ class Databasic {
      * @return boolean
      */
     public function drop($tableName) {
-		$dataBit = microtime();
-		$this->_startLoadTime($dataBit);
+		$dataBit = $this->_startLoadTime();
 
 		return $this->execute("DROP TABLE ". $this->backtick($tableName), $dataBit);
     }
@@ -576,8 +571,7 @@ class Databasic {
      */
     public function execute($sql, $dataBit = null) {
         if (empty($dataBit)) {
-            $dataBit = microtime();
-            $this->_startLoadTime($dataBit);
+            $dataBit = $this->_startLoadTime();
         }
 
         if (!$this->sql->ping()) {
@@ -699,8 +693,7 @@ class Databasic {
      * @return mixed
      */
     public function insert($tableName, array $columns) {
-		$dataBit = microtime();
-		$this->_startLoadTime($dataBit);
+		$dataBit = $this->_startLoadTime();
 		$this->_buildFields($dataBit, $columns, 'insert');
 
 		$sql = "INSERT INTO ". $this->backtick($tableName) ." (". implode(', ', $this->_data[$dataBit]['fields']) .") VALUES (". implode(', ', $this->_data[$dataBit]['values']) .")";
@@ -721,8 +714,7 @@ class Databasic {
      * @return mixed
      */
     public function optimize($tableName = null) {
-        $dataBit = microtime();
-        $this->_startLoadTime($dataBit);
+        $dataBit = $this->_startLoadTime();
 
         if (empty($tableName)) {
             $tables = $this->tables();
@@ -748,8 +740,7 @@ class Databasic {
      */
     public function select($finder, $tableName, array $options = array()) {
 		$execute = true;
-		$dataBit = microtime();
-		$this->_startLoadTime($dataBit);
+		$dataBit = $this->_startLoadTime();
 		$tableNames = array();
 
 		if (empty($finder)) {
@@ -920,8 +911,7 @@ class Databasic {
      * @return array
      */
     public function tables() {
-        $dataBit = microtime();
-        $this->_startLoadTime($dataBit);
+        $dataBit = $this->_startLoadTime();
         
         $query = $this->execute('SHOW TABLES', $dataBit);
         $tables = array();
@@ -941,8 +931,7 @@ class Databasic {
      * @return boolean
      */
     public function truncate($tableName) {
-		$dataBit = microtime();
-		$this->_startLoadTime($dataBit);
+		$dataBit = $this->_startLoadTime();
 
 		return $this->execute("TRUNCATE TABLE ". $this->backtick($tableName), $dataBit);
     }
@@ -958,13 +947,9 @@ class Databasic {
      * @return result
      */
     public function update($tableName, array $columns, array $conditions, $limit = 1) {
-        if (empty($tableName) || empty($columns) || empty($conditions)) {
-			return false;
-		}
-
-		$dataBit = microtime();
+		$dataBit = $this->_startLoadTime();
+		
 		$this->addBind($dataBit, 'limit', (int) $limit);
-		$this->_startLoadTime($dataBit);
 		$this->_buildFields($dataBit, $columns, 'update');
 		$this->_buildConditions($dataBit, $conditions);
 
@@ -1225,15 +1210,18 @@ class Databasic {
      * Starts the timer for the query execution time.
      *
      * @access protected
-     * @param int $dataBit
-     * @return void
+     * @return int
      */
-    protected function _startLoadTime($dataBit) {
+    protected function _startLoadTime() {
+		$dataBit = microtime();
+
         if ($this->_debug) {
             $time = explode(' ', $dataBit);
             $time = $time[1] + $time[0];
             $this->_data[$dataBit]['start'] = $time;
         }
+
+		return $dataBit;
     }
 	
     /**
