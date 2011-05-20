@@ -116,11 +116,13 @@ class Databasic {
      * @return string
      */
     public function addBind($dataBit, $key, $value) {
+		$key = trim($key, ':');
+		
         if (isset($this->_data[$dataBit]['binds'][':'. $key .':'])) {
             $key .= count($this->_data[$dataBit]['binds']);
         }
 
-        $this->_data[$dataBit]['binds'][':'. trim($key, ':') .':'] = $value;
+        $this->_data[$dataBit]['binds'][$key] = $value;
 		
         return $key;
     }
@@ -167,27 +169,31 @@ class Databasic {
      * @param boolean $clean
      * @return string
      */
-    public function bind($sql, $params, $clean = true) {
-        if (!empty($params) && !empty($sql)) {
-            if (is_array($params)) {
-                foreach ($params as $param => $value) {
-                    if (is_string($param) && isset($value)) {
-                        $param = ':'. trim($param, ':') .':';
+    public function bind($sql, array $params, $clean = true) {
+        if (!empty($params)) {
+			foreach ($params as $param => $value) {
+				if (is_string($param)) {
+					$param = ':'. trim($param, ':') .':';
 
-                        if (!preg_match('/^[_A-Z0-9]+\((.*)\)/', $value) && $clean) {
-                            $value = $this->clean($value);
-                        }
+					if (!preg_match('/^[_A-Z0-9]+\((.*)\)/', $value) && $clean) {
+						$value = $this->clean($value);
+					}
 
-                        $sql = str_replace($param, trim($value), $sql);
-                    }
-                }
-            } else {
-                trigger_error('Database::bind(): Params given are not an array', E_USER_WARNING);
-            }
+					$sql = str_replace($param, trim($value), $sql);
+				}
+			}
         }
 
         return $sql;
     }
+
+	public function binds($dataBit) {
+		if (!isset($this->_data[$dataBit]['binds'])) {
+			$this->_data[$dataBit]['binds'] = array();
+		}
+
+		return $this->_data[$dataBit]['binds'];
+	}
 	
     /**
      * Cleans an sql string to prevent unwanted injection.
@@ -214,14 +220,10 @@ class Databasic {
      * @return array
      */
     public function columns($tableName, $explicit = true) {
-        if (empty($tableName)) {
-			return;
-		}
-
 		$dataBit = microtime();
 		$this->_startLoadTime($dataBit);
 
-		$query = $this->execute("SHOW FULL COLUMNS FROM ". $this->backtick($tableName), $dataBit);
+		$query = $this->execute(sprintf('SHOW FULL COLUMNS FROM %s', $this->backtick($tableName)), $dataBit);
 		$columns = array();
 
 		while ($row = $this->fetchAll($query)) {
@@ -294,7 +296,11 @@ class Databasic {
      * @param array $settings - Merges with defaults
      * @return boolean
      */
-    public function create($tableName, $schema, $settings = array()) {
+    public function create($tableName, $schema, array $settings = array()) {
+		if (empty($schema)) {
+			return;
+		}
+
         $keys = $sql = array();
         $settings = $settings + array(
             'engine' 	=> 'InnoDB',
@@ -304,11 +310,6 @@ class Databasic {
             'increment'	=> 1
         );
 
-        // Build schema
-        if (empty($schema)) {
-			return;
-		}
-		
 		$dataBit = microtime();
 		$this->_startLoadTime($dataBit);
 
@@ -471,6 +472,7 @@ class Databasic {
 
 		// Add settings
 		$closer = ")";
+
 		foreach ($settings as $field => $setting) {
 			if ($field == 'engine') {
 				$closer .= " ENGINE=". $setting;
@@ -484,6 +486,7 @@ class Databasic {
 				$closer .= " COLLATE=". $this->_encode($setting);
 			}
 		}
+		
 		$closer .= ";";
 
 		$sql[] = $closer;
@@ -513,10 +516,6 @@ class Databasic {
      * @return mixed
      */
     public function delete($tableName, array $conditions, $limit = 1) {
-        if (empty($tableName) || empty($conditions)) {
-			return false;
-		}
-
 		$dataBit = microtime();
 		$this->_startLoadTime($dataBit);
 		$this->_buildConditions($dataBit, $conditions);
@@ -529,7 +528,7 @@ class Databasic {
 			$this->addBind($dataBit, 'limit', $limit);
 		}
 
-		return $this->execute($this->bind($sql, $this->_data[$dataBit]['binds']), $dataBit);
+		return $this->execute($this->bind($sql, $this->binds($dataBit)), $dataBit);
     }
 	
     /**
@@ -540,10 +539,6 @@ class Databasic {
      * @return boolean
      */
     public function describe($tableName) {
-        if (empty($tableName)) {
-			return;
-		}
-
 		$dataBit = microtime();
 		$this->_startLoadTime($dataBit);
 		$rows = array();
@@ -565,10 +560,6 @@ class Databasic {
      * @return boolean
      */
     public function drop($tableName) {
-        if (empty($tableName)) {
-			return;
-		}
-
 		$dataBit = microtime();
 		$this->_startLoadTime($dataBit);
 
@@ -708,16 +699,12 @@ class Databasic {
      * @return mixed
      */
     public function insert($tableName, array $columns) {
-        if (empty($tableName) || empty($columns)) {
-			return false;
-		}
-
 		$dataBit = microtime();
 		$this->_startLoadTime($dataBit);
 		$this->_buildFields($dataBit, $columns, 'insert');
 
 		$sql = "INSERT INTO ". $this->backtick($tableName) ." (". implode(', ', $this->_data[$dataBit]['fields']) .") VALUES (". implode(', ', $this->_data[$dataBit]['values']) .")";
-		$sql = $this->bind($sql, $this->_data[$dataBit]['binds']);
+		$sql = $this->bind($sql, $this->binds($dataBit));
 
 		if ($query = $this->execute($sql, $dataBit)) {
 			return $this->getLastInsertId();
@@ -760,10 +747,6 @@ class Databasic {
      * @return mixed
      */
     public function select($finder, $tableName, array $options = array()) {
-        if (empty($tableName)) {
-			return false;
-		}
-
 		$execute = true;
 		$dataBit = microtime();
 		$this->_startLoadTime($dataBit);
@@ -878,11 +861,7 @@ class Databasic {
 
 		// Execute query and return results
 		if ($execute === true) {
-			if (!isset($this->_data[$dataBit]['binds'])) {
-				$this->_data[$dataBit]['binds'] = array();
-			}
-
-			$sql = $this->bind($sql, $this->_data[$dataBit]['binds']);
+			$sql = $this->bind($sql, $this->binds($dataBit));
 			$query = $this->execute($sql, $dataBit);
 
 			if ($finder == 'count') {
@@ -962,10 +941,6 @@ class Databasic {
      * @return boolean
      */
     public function truncate($tableName) {
-        if (empty($tableName)) {
-			return false;
-		}
-
 		$dataBit = microtime();
 		$this->_startLoadTime($dataBit);
 
@@ -994,7 +969,7 @@ class Databasic {
 		$this->_buildConditions($dataBit, $conditions);
 
 		$sql = "UPDATE ". $this->backtick($tableName) ." SET ". implode(', ', $this->_data[$dataBit]['fields']) ." WHERE ". $this->_formatConditions($this->_data[$dataBit]['conditions']) ." LIMIT :limit:";
-		$sql = $this->bind($sql, $this->_data[$dataBit]['binds']);
+		$sql = $this->bind($sql, $this->binds($dataBit));
 
 		return $this->execute($sql, $dataBit);
     }
