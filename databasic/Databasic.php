@@ -116,8 +116,6 @@ class Databasic {
      * @return string
      */
     public function addBind($dataBit, $key, $value) {
-		$this->binds($dataBit);
-		
 		$key = trim($key, ':');
 		
         if (isset($this->_data[$dataBit]['binds'][':'. $key .':'])) {
@@ -229,9 +227,7 @@ class Databasic {
      * @return array
      */
     public function columns($tableName, $explicit = true) {
-		$dataBit = $this->_startLoadTime();
-
-		$query = $this->execute(sprintf('SHOW FULL COLUMNS FROM %s', $this->backtick($tableName)), $dataBit);
+		$query = $this->execute(sprintf('SHOW FULL COLUMNS FROM %s', $this->backtick($tableName)), $this->_startLoadTime());
 		$columns = array();
 
 		while ($row = $this->fetchAll($query)) {
@@ -325,7 +321,7 @@ class Databasic {
 		foreach ($schema as $field => $data) {
 			$column = "\t". $this->backtick($field);
 
-			$data['options'] = (isset($data['options']) ? $data['options'] : array())  + array(
+			$data['options'] = (isset($data['options']) ? $data['options'] : array()) + array(
 				'null' => false,
 				'unsigned' => false,
 				'zerofill' => false,
@@ -488,7 +484,7 @@ class Databasic {
 			} else if ($field == 'comment') {
 				$closer .= " COMMENT='". $this->_encode($setting) ."'";
 			} else if ($field == 'increment') {
-				$closer .= " AUTO_INCREMENT=". intval($setting);
+				$closer .= " AUTO_INCREMENT=". (int) $setting;
 			} else if ($field == 'collate') {
 				$closer .= " COLLATE=". $this->_encode($setting);
 			}
@@ -524,16 +520,13 @@ class Databasic {
      */
     public function delete($tableName, array $conditions, $limit = 1) {
 		$dataBit = $this->_startLoadTime();
-		$conditions = $this->_buildConditions($dataBit, $conditions);
 
-		$sql = sprintf('DELETE FROM %s WHERE %s', $this->backtick($tableName), $this->_formatConditions($conditions));
+		$this->addBind($dataBit, 'limit', (int) $limit);
 
-		if (is_numeric($limit) && $limit > 0) {
-			$sql .= ' LIMIT :limit:';
-			$this->addBind($dataBit, 'limit', (int) $limit);
-		}
+		$sql = sprintf('DELETE FROM %s WHERE %s LIMIT :limit:', $this->backtick($tableName), $this->_formatConditions($this->_buildConditions($dataBit, $conditions)));
+		$sql = $this->bind($sql, $this->binds($dataBit));
 
-		return $this->execute($this->bind($sql, $this->binds($dataBit)), $dataBit);
+		return $this->execute($sql, $dataBit);
     }
 	
     /**
@@ -544,10 +537,9 @@ class Databasic {
      * @return boolean
      */
     public function describe($tableName) {
-		$dataBit = $this->_startLoadTime();
 		$rows = array();
 
-		if ($query = $this->execute(sprintf('DESCRIBE %s', $this->backtick($tableName)), $dataBit)) {
+		if ($query = $this->execute(sprintf('DESCRIBE %s', $this->backtick($tableName)), $this->_startLoadTime())) {
 			while ($row = $this->fetchAll($query)) {
 				$rows[] = $row;
 			}
@@ -581,14 +573,15 @@ class Databasic {
         }
 
         if (!$this->sql->ping()) {
-            trigger_error('Database::execute(): Your database connection has been lost!', E_USER_ERROR);
+            trigger_error(sprintf('%s(): Your database connection has been lost!', __METHOD__), E_USER_ERROR);
         }
 
         $result = $this->sql->query($sql);
 
         if ($result === false) {
             $failure = $this->sql->error .'. ('. $this->sql->errno .')';
-            trigger_error('Database::execute(): '. $failure, E_USER_ERROR);
+            trigger_error(sprintf('%s(): %s', __METHOD__, $failure), E_USER_WARNING);
+			
         } else {
             ++$this->_executed;
         }
@@ -907,10 +900,9 @@ class Databasic {
      * @return array
      */
     public function tables() {
-        $dataBit = $this->_startLoadTime();
         $tables = array();
 
-        while ($table = $this->fetchAll($this->execute('SHOW TABLES', $dataBit))) {
+        while ($table = $this->fetchAll($this->execute('SHOW TABLES', $this->_startLoadTime()))) {
             $tables[] = $table['Tables_in_'. $this->_db['database']];
         }
 
@@ -1078,7 +1070,7 @@ class Databasic {
         $this->sql = new mysqli($this->_db['server'], $this->_db['username'], $this->_db['password'], $this->_db['database']);
 
         if (mysqli_connect_error()) {
-            trigger_error('Database::connect(): '. mysqli_connect_errno() .'. ('. mysqli_connect_error() .')', E_USER_ERROR);
+            trigger_error(sprintf('%s(): %s (%s)', __METHOD__, mysqli_connect_errno(), mysqli_connect_error()), E_USER_ERROR);
         }
 
         unset($this->_db['password']);
@@ -1128,8 +1120,8 @@ class Databasic {
 				}
 
 			} else {
-				if (is_int($param)) {
-					$param = intval($this->clean($param));
+				if (is_numeric($param)) {
+					$param = (int) $this->clean($param);
 				} else {
 					$param = $this->backtick($param);
 				}
@@ -1156,7 +1148,7 @@ class Databasic {
             $cleanValue = 'NULL';
 
         // Empty
-        } else if ((empty($value) || !isset($value)) && $value !== 0) {
+        } else if (empty($value) && $value !== 0) {
             $cleanValue = "''";
 
         // NOW(), etc
@@ -1165,7 +1157,7 @@ class Databasic {
 
         // Boolean
         } else if (is_bool($value)) {
-            $cleanValue = (bool)$value;
+            $cleanValue = (bool) $value;
 
         // Integers, Numbers
         } else if (is_numeric($value) || is_int($value)) {
@@ -1209,6 +1201,8 @@ class Databasic {
      */
     protected function _startLoadTime() {
 		$dataBit = microtime();
+
+		$this->_data[$dataBit] = array();
 
         if ($this->_debug) {
             $time = explode(' ', $dataBit);
