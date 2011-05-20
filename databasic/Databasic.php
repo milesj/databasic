@@ -116,6 +116,8 @@ class Databasic {
      * @return string
      */
     public function addBind($dataBit, $key, $value) {
+		$this->binds($dataBit);
+		
 		$key = trim($key, ':');
 		
         if (isset($this->_data[$dataBit]['binds'][':'. $key .':'])) {
@@ -187,6 +189,13 @@ class Databasic {
         return $sql;
     }
 
+	/**
+	 * Return all binds for hte defined databit. If it is not set, create it.
+	 *
+	 * @access public
+	 * @param int $dataBit
+	 * @return array
+	 */
 	public function binds($dataBit) {
 		if (!isset($this->_data[$dataBit]['binds'])) {
 			$this->_data[$dataBit]['binds'] = array();
@@ -295,21 +304,21 @@ class Databasic {
      * @param array $settings - Merges with defaults
      * @return boolean
      */
-    public function create($tableName, $schema, array $settings = array()) {
+    public function create($tableName, array $schema, array $settings = array()) {
 		if (empty($schema)) {
 			return;
 		}
 
-        $keys = $sql = array();
+		$dataBit = $this->_startLoadTime();
+		$sql = array();
+        $keys = array();
         $settings = $settings + array(
-            'engine' 	=> 'InnoDB',
-            'charset'	=> 'utf8',
-            'collate'	=> 'utf8_general_ci',
-            'comment'	=> '',
+            'engine' => 'InnoDB',
+            'charset' => 'utf8',
+            'collate' => 'utf8_general_ci',
+            'comment' => '',
             'increment'	=> 1
         );
-
-		$dataBit = $this->_startLoadTime();
 
 		$sql[] = "CREATE TABLE IF NOT EXISTS ". $this->backtick($tableName) ." (";
 
@@ -515,14 +524,13 @@ class Databasic {
      */
     public function delete($tableName, array $conditions, $limit = 1) {
 		$dataBit = $this->_startLoadTime();
-		$this->_buildConditions($dataBit, $conditions);
+		$conditions = $this->_buildConditions($dataBit, $conditions);
 
-		$sql = "DELETE FROM ". $this->backtick($tableName) ." WHERE ". $this->_formatConditions($this->_data[$dataBit]['conditions']);
+		$sql = sprintf('DELETE FROM %s WHERE %s', $this->backtick($tableName), $this->_formatConditions($conditions));
 
-		// Limit, offset
-		if (isset($limit) && is_int($limit)) {
-			$sql .= " LIMIT :limit:";
-			$this->addBind($dataBit, 'limit', $limit);
+		if (is_numeric($limit) && $limit > 0) {
+			$sql .= ' LIMIT :limit:';
+			$this->addBind($dataBit, 'limit', (int) $limit);
 		}
 
 		return $this->execute($this->bind($sql, $this->binds($dataBit)), $dataBit);
@@ -539,7 +547,7 @@ class Databasic {
 		$dataBit = $this->_startLoadTime();
 		$rows = array();
 
-		if ($query = $this->execute("DESCRIBE ". $this->backtick($tableName), $dataBit)) {
+		if ($query = $this->execute(sprintf('DESCRIBE %s', $this->backtick($tableName)), $dataBit)) {
 			while ($row = $this->fetchAll($query)) {
 				$rows[] = $row;
 			}
@@ -556,9 +564,7 @@ class Databasic {
      * @return boolean
      */
     public function drop($tableName) {
-		$dataBit = $this->_startLoadTime();
-
-		return $this->execute("DROP TABLE ". $this->backtick($tableName), $dataBit);
+		return $this->execute(sprintf('DROP TABLE %s', $this->backtick($tableName)), $this->_startLoadTime());
     }
 
     /**
@@ -694,9 +700,9 @@ class Databasic {
      */
     public function insert($tableName, array $columns) {
 		$dataBit = $this->_startLoadTime();
-		$this->_buildFields($dataBit, $columns, 'insert');
+		$fields = $this->_buildFields($dataBit, $columns, 'insert');
 
-		$sql = "INSERT INTO ". $this->backtick($tableName) ." (". implode(', ', $this->_data[$dataBit]['fields']) .") VALUES (". implode(', ', $this->_data[$dataBit]['values']) .")";
+		$sql = sprintf('INSERT INTO %s (%s) VALUES (%s)', $this->backtick($tableName), implode(', ', $fields['fields']), implode(', ', $fields['values']));
 		$sql = $this->bind($sql, $this->binds($dataBit));
 
 		if ($query = $this->execute($sql, $dataBit)) {
@@ -717,16 +723,14 @@ class Databasic {
         $dataBit = $this->_startLoadTime();
 
         if (empty($tableName)) {
-            $tables = $this->tables();
-
-            foreach ($tables as $table) {
-                $this->execute('OPTIMIZE TABLE '. $this->backtick($table), $dataBit);
+            foreach ($this->tables() as $table) {
+                $this->execute(sprintf('OPTIMIZE TABLE %s', $this->backtick($table)), $dataBit);
             }
 
             return true;
         }
 
-		return $this->execute("OPTIMIZE TABLE ". $this->backtick($tableName), $dataBit);
+		return $this->execute(sprintf('OPTIMIZE TABLE %s', $this->backtick($tableName)), $dataBit);
     }
 	
     /**
@@ -755,7 +759,7 @@ class Databasic {
 					$as = $table;
 				}
 
-				$tables[] = $this->backtick($table) ." AS ". $this->backtick(ucfirst($as));
+				$tables[] = $this->backtick($table) .' AS '. $this->backtick(ucfirst($as));
 				$tableNames[] = $this->backtick(ucfirst($as));
 			}
 
@@ -790,14 +794,7 @@ class Databasic {
 
 		// Conditions
 		if (!empty($options['conditions'])) {
-			if (is_array($options['conditions'])) {
-				$this->_buildConditions($dataBit, $options['conditions']);
-			} else {
-				$execute = false;
-				trigger_error('Database::select(): Conditions/Where clause supplied must be an array', E_USER_WARNING);
-			}
-
-			$sql .= " WHERE ". $this->_formatConditions($this->_data[$dataBit]['conditions']);
+			$sql .= " WHERE ". $this->_formatConditions($this->_buildConditions($dataBit, $options['conditions']));
 		}
 
 		// Order
@@ -857,7 +854,7 @@ class Databasic {
 
 			if ($finder == 'count') {
 				if ($fetch = $this->fetch($query)) {
-					if ($this->_asObject === true) {
+					if ($this->_asObject) {
 						return $fetch->count;
 					} else {
 						return $fetch['count'];
@@ -889,7 +886,7 @@ class Databasic {
      * @param string $database
      * @param string $username
      * @param string $password
-     * @return boolean
+     * @return void
      * @static
      */
     public static function store($db, $server, $database, $username, $password) {
@@ -901,7 +898,6 @@ class Databasic {
         );
 
         unset($password);
-        return true;
     }
 
     /**
@@ -912,11 +908,9 @@ class Databasic {
      */
     public function tables() {
         $dataBit = $this->_startLoadTime();
-        
-        $query = $this->execute('SHOW TABLES', $dataBit);
         $tables = array();
 
-        while ($table = $this->fetchAll($query)) {
+        while ($table = $this->fetchAll($this->execute('SHOW TABLES', $dataBit))) {
             $tables[] = $table['Tables_in_'. $this->_db['database']];
         }
 
@@ -931,9 +925,7 @@ class Databasic {
      * @return boolean
      */
     public function truncate($tableName) {
-		$dataBit = $this->_startLoadTime();
-
-		return $this->execute("TRUNCATE TABLE ". $this->backtick($tableName), $dataBit);
+		return $this->execute(sprintf('TRUNCATE TABLE %s', $this->backtick($tableName)), $this->_startLoadTime());
     }
 
     /**
@@ -948,12 +940,12 @@ class Databasic {
      */
     public function update($tableName, array $columns, array $conditions, $limit = 1) {
 		$dataBit = $this->_startLoadTime();
-		
-		$this->addBind($dataBit, 'limit', (int) $limit);
-		$this->_buildFields($dataBit, $columns, 'update');
-		$this->_buildConditions($dataBit, $conditions);
+		$fields = $this->_buildFields($dataBit, $columns, 'update');
+		$conditions = $this->_buildConditions($dataBit, $conditions);
 
-		$sql = "UPDATE ". $this->backtick($tableName) ." SET ". implode(', ', $this->_data[$dataBit]['fields']) ." WHERE ". $this->_formatConditions($this->_data[$dataBit]['conditions']) ." LIMIT :limit:";
+		$this->addBind($dataBit, 'limit', (int) $limit);
+
+		$sql = sprintf('UPDATE %s SET %s WHERE %s LIMIT :limit:', $this->backtick($tableName), implode(', ', $fields['fields']), $this->_formatConditions($conditions));
 		$sql = $this->bind($sql, $this->binds($dataBit));
 
 		return $this->execute($sql, $dataBit);
@@ -1004,6 +996,8 @@ class Databasic {
                 }
             break;
         }
+
+		return $this->_data[$dataBit];
     }
 	
     /**
@@ -1067,6 +1061,7 @@ class Databasic {
         }
 
         $this->_data[$dataBit]['conditions'] = $data;
+		
         return $data;
     }
 
