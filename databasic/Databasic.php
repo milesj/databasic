@@ -561,15 +561,13 @@ class Databasic {
         }
 
         if (!$this->sql->ping()) {
-            trigger_error(sprintf('%s(): Your database connection has been lost!', __METHOD__), E_USER_ERROR);
+            throw new Exception(sprintf('%s(): Your database connection has been lost!', __METHOD__));
         }
 
         $result = $this->sql->query($sql);
 
         if ($result === false) {
-            $failure = $this->sql->error .'. ('. $this->sql->errno .')';
-            trigger_error(sprintf('%s(): %s', __METHOD__, $failure), E_USER_WARNING);
-			
+            $failure = $this->sql->error .' ('. $this->sql->errno .')';
         } else {
             ++$this->_executed;
         }
@@ -965,8 +963,8 @@ class Databasic {
             case 'select':
                 foreach ($columns as $tableAlias => $column) {
                     if (is_string($tableAlias) && is_array($column)) {
-                        foreach ($column as $ci => $col) {
-                            $column[$ci] = $tableAlias .'.'. $col;
+                        foreach ($column as $i => $col) {
+                            $column[$i] = $tableAlias .'.'. $col;
                         }
 
                         $this->_buildFields($dataBit, $column, 'select');
@@ -1021,9 +1019,10 @@ class Databasic {
                 // IN, array
                 } else if (is_array($value)) {
                     $values = array();
-                    foreach ($value as $x => $val) {
-                        $key = $this->addBind($dataBit, 'where_'. $x . $column, $val);
-                        $values[] = $this->_formatType($val, trim($key, ':'));
+					
+                    foreach ($value as $i => $val) {
+                        $key = $this->addBind($dataBit, 'where_'. $i . $column, $val);
+                        $values[] = $this->_formatType($val, $key);
                     }
 
                     $valueClean = '('. implode(', ', $values) .')';
@@ -1123,7 +1122,7 @@ class Databasic {
 			$cleaned[] = $param;
 		}
 
-		return (string) $function ."(". implode(', ', $cleaned) .")";
+		return (string) $function .'('. implode(', ', $cleaned) .')';
     }
 	
     /**
