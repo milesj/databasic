@@ -1,11 +1,11 @@
 <?php
 /**
- * DataBasic - Basic Database Access
+ * Databasic
  *
  * A wrapper class for accessing, abstracting and manipulating a MySQL database.
  * 
  * @author      Miles Johnson - http://milesj.me
- * @copyright   Copyright 2006-2010, Miles Johnson, Inc.
+ * @copyright   Copyright 2006-2011, Miles Johnson, Inc.
  * @license     http://opensource.org/licenses/mit-license.php - Licensed under The MIT License
  * @link        http://milesj.me/code/php/databasic
  */
@@ -573,17 +573,18 @@ class Databasic {
         } else {
             ++$this->_executed;
         }
+		
+		$seconds = $this->_endLoadTime($dataBit);
 
         if ($this->_debug) {
             $this->_queries[] = array(
                 'statement' => $sql,
                 'executed'  => isset($failure) ? $failure : 'true',
-                'took'		=> $this->_endLoadTime($dataBit) .' seconds',
+                'took'		=> $seconds .' seconds',
                 'affected'	=> $this->getAffected() .' rows'
             );
         }
 
-        unset($this->_data[$dataBit]);
         return $result;
     }
 	
@@ -1213,11 +1214,14 @@ class Databasic {
      * @return int
      */
     protected function _endLoadTime($dataBit) {
+		$start = $this->_data[$dataBit]['start'];
+		unset($this->_data[$dataBit]);
+		
         if ($this->_debug) {
             $time = explode(' ', microtime());
             $time = $time[1] + $time[0];
 
-            return ($time - $this->_data[$dataBit]['start']);
+            return ($time - $start);
         }
     }
 
