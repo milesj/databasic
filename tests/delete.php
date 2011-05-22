@@ -15,3 +15,7 @@ $db->delete('users', array('id' => $id));
 
 // Delete multiple rows (pass null or false to remove the limit)
 $db->delete('users', array('status' => 0), null);
+
+// Empty our database
+$db->truncate('users');
+$db->truncate('countries');

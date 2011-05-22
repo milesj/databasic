@@ -57,6 +57,10 @@ $db->create('users', array(
 	),
 ));
 
+debug($db->columns('users'));
+debug($db->describe('users'));
+
+// Create our countries table
 $db->create('countries', array(
 	'id' => array(
 		'type' => 'int',
@@ -68,3 +72,9 @@ $db->create('countries', array(
 		'length' => 50
 	)
 ));
+
+debug($db->columns('countries'));
+debug($db->describe('countries'));
+
+// Show all tables
+debug($db->tables());
