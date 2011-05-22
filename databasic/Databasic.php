@@ -4,10 +4,10 @@
  *
  * A wrapper class for accessing, abstracting and manipulating a MySQL database.
  * 
- * @author      Miles Johnson - http://milesj.me
- * @copyright   Copyright 2006-2011, Miles Johnson, Inc.
- * @license     http://opensource.org/licenses/mit-license.php - Licensed under The MIT License
- * @link        http://milesj.me/code/php/databasic
+ * @author		Miles Johnson - http://milesj.me
+ * @copyright	Copyright 2006-2011, Miles Johnson, Inc.
+ * @license		http://opensource.org/licenses/mit-license.php - Licensed under The MIT License
+ * @link		http://milesj.me/code/php/databasic
  */
  
 class Databasic {
@@ -369,7 +369,7 @@ class Databasic {
 				}
 
 			// Strings
-			} else if ($data['type'] == 'string' || $data['type'] == 'text') {
+			} else if ($data['type'] == 'string' || $data['type'] == 'text' || $data['type'] == 'char' || $data['type'] == 'varchar') {
 				if ($data['length'] <= 255) {
 					$column .= ' VARCHAR('. $data['length'] .')';
 				} else {
@@ -412,7 +412,7 @@ class Databasic {
 
 				// Default
 				if ($data['type'] == 'enum') {
-					if (!empty($data['options']['default']) && in_array($data['options']['default'], $data['enum'])) {
+					if ($data['options']['default'] !== '' && in_array($data['options']['default'], $data['enum'])) {
 						$default = $data['options']['default'];
 					} else {
 						$default = $data['enum'][0];
@@ -420,7 +420,7 @@ class Databasic {
 
 					$column .= " DEFAULT '". $default ."'";
 
-				} else if (!empty($data['options']['default']) && !$data['options']['auto_increment']) {
+				} else if ($data['options']['default'] !== '' && !$data['options']['auto_increment']) {
 					$column .= " DEFAULT '". $this->_encode($data['options']['default']) ."'";
 				}
 
@@ -433,8 +433,10 @@ class Databasic {
 				if (isset($data['key'])) {
 					if ($data['key'] == 'index') {
 						$keys['index'][] = $field;
+						
 					} else if ($data['key'] == 'primary') {
 						$keys['primary'] = $field;
+						
 					} else if ($data['key'] == 'unique') {
 						$keys['unique'] = $field;
 					}
@@ -509,9 +511,13 @@ class Databasic {
     public function delete($tableName, array $conditions, $limit = 1) {
 		$dataBit = $this->_startLoadTime();
 
-		$this->addBind($dataBit, 'limit', (int) $limit);
-
-		$sql = sprintf('DELETE FROM %s WHERE %s LIMIT :limit:', $this->backtick($tableName), $this->_formatConditions($this->_buildConditions($dataBit, $conditions)));
+		$sql = sprintf('DELETE FROM %s WHERE %s', $this->backtick($tableName), $this->_formatConditions($this->_buildConditions($dataBit, $conditions)));
+				
+		if (is_numeric($limit)) {
+			$sql .= ' LIMIT :limit:';
+			$this->addBind($dataBit, 'limit', (int) $limit);
+		}
+		
 		$sql = $this->bind($sql, $this->binds($dataBit));
 
 		return $this->execute($sql, $dataBit);
@@ -834,28 +840,29 @@ class Databasic {
 
 		// Execute query and return results
 		$sql = $this->bind($sql, $this->binds($dataBit));
-		$query = $this->execute($sql, $dataBit);
 
-		if ($finder == 'count') {
-			if ($fetch = $this->fetch($query)) {
-				if ($this->_asObject) {
-					return $fetch->count;
-				} else {
-					return $fetch['count'];
+		if ($query = $this->execute($sql, $dataBit)) {
+			if ($finder == 'count') {
+				if ($fetch = $this->fetch($query)) {
+					if ($this->_asObject) {
+						return $fetch->count;
+					} else {
+						return $fetch['count'];
+					}
 				}
+
+			} else if ($finder == 'first') {
+				return $this->fetch($query);
+
+			} else {
+				$rows = array();
+
+				while ($row = $this->fetchAll($query)) {
+					$rows[] = $row;
+				}
+
+				return $rows;
 			}
-
-		} else if ($finder == 'first') {
-			return $this->fetch($query);
-
-		} else {
-			$rows = array();
-			
-			while ($row = $this->fetchAll($query)) {
-				$rows[] = $row;
-			}
-
-			return $rows;
 		}
 
 		return false;
@@ -926,9 +933,13 @@ class Databasic {
 		$fields = $this->_buildFields($dataBit, $columns, 'update');
 		$conditions = $this->_buildConditions($dataBit, $conditions);
 
-		$this->addBind($dataBit, 'limit', (int) $limit);
-
-		$sql = sprintf('UPDATE %s SET %s WHERE %s LIMIT :limit:', $this->backtick($tableName), implode(', ', $fields['fields']), $this->_formatConditions($conditions));
+		$sql = sprintf('UPDATE %s SET %s WHERE %s', $this->backtick($tableName), implode(', ', $fields['fields']), $this->_formatConditions($conditions));
+		
+		if (is_numeric($limit)) {
+			$sql .= ' LIMIT :limit:';
+			$this->addBind($dataBit, 'limit', (int) $limit);
+		}
+		
 		$sql = $this->bind($sql, $this->binds($dataBit));
 
 		return $this->execute($sql, $dataBit);

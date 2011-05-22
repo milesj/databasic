@@ -1,4 +1,14 @@
 <?php
+/**
+ * Databasic
+ *
+ * A wrapper class for accessing, abstracting and manipulating a MySQL database.
+ * 
+ * @author		Miles Johnson - http://milesj.me
+ * @copyright	Copyright 2006-2011, Miles Johnson, Inc.
+ * @license		http://opensource.org/licenses/mit-license.php - Licensed under The MIT License
+ * @link		http://milesj.me/code/php/databasic
+ */
 
 // Turn on error reporting
 error_reporting(E_ALL);
@@ -8,47 +18,20 @@ function debug($var) {
 }
 
 // Require and initialize
-require_once('database.php');
+include_once '../databasic/Databasic.php';
 
-// Store db info and initialize
-Database::store('default', 'localhost', 'database', 'user', 'password');
+// Store DB info and initialize
+Databasic::store('default', 'localhost', 'test', 'root', '');
 
-$db = Database::getInstance();
+$db = Databasic::getInstance();
+$id = null;
 
-// Select specific fields from the users table
-$results = $db->select('all', 'users', array(
-	'fields' => array('id', 'username', 'email')
-));
-
-debug($results);
-
-// Get count of all users in a country
-$total = $db->select('count', 'users', array(
-	'conditions' => array('country_id' => 123)
-));
-
-debug($total);
-
-// Insert a user into the database
-$last_id = $db->insert('users', array(
-	'username' => 'milesj',
-	'website' => 'http://milesj.me'
-));
-
-debug($last_id);
-
-// Selecting from multiple tables
-$results = $db->select('first', array('users', 'profile'), array(
-    'conditions' => array(
-        'username' => 'milesj'
-    ),
-	'fields' => array(
-        'Users' => array('id', 'username', 'email', 'profile_id'),
-        'Profile' => array('signature', 'avatar')
-    )
-));
-
-debug($results);
+// Include our DB calls
+include_once 'create.php';
+include_once 'insert.php';
+include_once 'select.php';
+include_once 'update.php';
+include_once 'delete.php';
 
 // Output logged information
 debug('Executed: '. $db->getExecuted());

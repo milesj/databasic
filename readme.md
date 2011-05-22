@@ -1,29 +1,27 @@
-Databasic v2.4 - MySQLi Database Handler
-****************************************
+# Databasic v2.5 #
 
-Requirements
-============
+A wrapper class for accessing, abstracting and manipulating a MySQL database.
 
-    * PHP 5.2.x 
-    * MySqli Extension
+## Requirements ##
 
-Features
-========
+* PHP 5.2.x 
+* MySQLi Extension - http://php.net/manual/book.mysqli.php
 
-    * Creates a connection to a database using MySQLi
-    * Can store and connect to multiple databases
-    * Stores the connection within a Multiton instance
-    * Logs queried information and total executed queries
-    * Binds variables to SQL statements; similar to PDO
-    * Cleans all binded data to prevent mysql injection
-    * Fetches data as an object or an associative array
-    * Logs each queries execution time
-    * Has support for a debug mode
-    * Pre-built methods for CREATE TABLE, DELETE, DESCRIBE, DROP, UPDATE, INSERT, SELECT, TRUNCATE and OPTIMIZE
-    * And much more...
+## Features ##
 
-Documentation
-=============
+* Creates a connection to a database using MySQLi
+* Can store and connect to multiple databases
+* Stores the connection within a Multiton instance
+* Logs queried information and total executed queries
+* Binds variables to SQL statements; similar to PDO
+* Cleans all binded data to prevent mysql injection
+* Fetches data as an object or an associative array
+* Logs each queries execution time
+* Has support for a debug mode
+* Pre-built methods for CREATE TABLE, DELETE, DESCRIBE, DROP, UPDATE, INSERT, SELECT, TRUNCATE and OPTIMIZE
+* And much more...
 
-    * http://milesj.me/resources/script/database-handler
+## Documentation ##
+
+Thorough documentation can be found here: http://milesj.me/code/php/databasic
 
