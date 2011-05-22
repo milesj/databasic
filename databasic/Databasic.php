@@ -229,6 +229,10 @@ class Databasic {
 	public function columns($tableName, $explicit = true) {
 		$query = $this->execute(sprintf('SHOW FULL COLUMNS FROM %s', $this->backtick($tableName)), $this->_startLoadTime());
 		$columns = array();
+		
+		if (!$query) {
+			return $columns;
+		}
 
 		while ($row = $this->fetchAll($query)) {
 			if ($explicit) {
