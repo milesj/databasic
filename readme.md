@@ -1,10 +1,10 @@
-# Databasic v2.5 #
+# Databasic v2.5.1 #
 
 A wrapper class for accessing, abstracting and manipulating a MySQL database.
 
 ## Requirements ##
 
-* PHP 5.2.x 
+* PHP 5.2.x
 * MySQLi Extension - http://php.net/manual/book.mysqli.php
 
 ## Features ##

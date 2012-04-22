@@ -3,22 +3,15 @@
  * Databasic
  *
  * A wrapper class for accessing, abstracting and manipulating a MySQL database.
- * 
+ *
+ * @version		2.5.1
  * @author		Miles Johnson - http://milesj.me
  * @copyright	Copyright 2006-2011, Miles Johnson, Inc.
  * @license		http://opensource.org/licenses/mit-license.php - Licensed under The MIT License
  * @link		http://milesj.me/code/php/databasic
  */
- 
-class Databasic {
 
-	/**
-	 * Current version.
-	 *
-	 * @access public
-	 * @var int
-	 */
-	public $version = '2.5';
+class Databasic {
 
 	/**
 	 * The MySQLi instance.
@@ -229,7 +222,7 @@ class Databasic {
 	public function columns($tableName, $explicit = true) {
 		$query = $this->execute(sprintf('SHOW FULL COLUMNS FROM %s', $this->backtick($tableName)), $this->_startLoadTime());
 		$columns = array();
-		
+
 		if (!$query) {
 			return $columns;
 		}
@@ -903,7 +896,7 @@ class Databasic {
 	 */
 	public function tables() {
 		$tables = array();
-		
+
 		if ($query = $this->execute('SHOW TABLES', $this->_startLoadTime())) {
 			while ($table = $this->fetchAll($query)) {
 				$tables[] = $table['Tables_in_'. $this->_db['database']];
