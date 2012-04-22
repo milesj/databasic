@@ -118,7 +118,7 @@ class Databasic {
 	public function addBind($dataBit, $key, $value) {
 		$key = trim($key, ':');
 
-		if (isset($this->_data[$dataBit]['binds'][':'. $key .':'])) {
+		if (isset($this->_data[$dataBit]['binds'][$key])) {
 			$key .= count($this->_data[$dataBit]['binds']);
 		}
 
