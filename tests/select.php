@@ -3,7 +3,7 @@
  * Databasic
  *
  * A wrapper class for accessing, abstracting and manipulating a MySQL database.
- * 
+ *
  * @author		Miles Johnson - http://milesj.me
  * @copyright	Copyright 2006-2011, Miles Johnson, Inc.
  * @license		http://opensource.org/licenses/mit-license.php - Licensed under The MIT License
@@ -27,6 +27,14 @@ debug($db->select('first', 'users', array(
 debug($db->select('all', 'users', array(
 	'order' => array('created' => 'DESC'),
 	'limit' => 10
+)));
+
+// Get users with multiple dates
+debug($db->select('all', 'users', array(
+	'conditions' => array(
+        'created >=' => '2012-02-10',
+        'created <=' => '2012-02-24',
+	)
 )));
 
 // Get a specific user and related country info
