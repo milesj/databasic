@@ -1,4 +1,4 @@
-# Databasic v2.5.1 #
+# Databasic v2.6 #
 
 A wrapper class for accessing, abstracting and manipulating a MySQL database.
 
