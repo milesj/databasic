@@ -92,7 +92,6 @@ class Databasic {
 	 *
 	 * @access private
 	 * @param array $db
-	 * @return void
 	 */
 	private function __construct($db) {
 		$this->_db = $db;
@@ -103,9 +102,9 @@ class Databasic {
 	 * Add a binded value column pair to the respective call.
 	 *
 	 * @access public
-	 * @param $dataBit
-	 * @param $key
-	 * @param $value
+	 * @param int $dataBit
+	 * @param string $key
+	 * @param mixed $value
 	 * @return string
 	 */
 	public function addBind($dataBit, $key, $value) {
@@ -296,10 +295,11 @@ class Databasic {
 	 * @param array $schema
 	 * @param array $settings - Merges with defaults
 	 * @return boolean
+	 * @throws Exception
 	 */
 	public function create($tableName, array $schema, array $settings = array()) {
 		if (empty($schema)) {
-			return;
+			throw new Exception('Schema is required to create tables.');
 		}
 
 		$dataBit = $this->_startLoadTime();
@@ -330,11 +330,11 @@ class Databasic {
 			}
 
 			if (empty($data['length'])) {
-				$data['length'] = ($data['type'] == 'string' || $data['type'] == 'text') ? 255 : 10;
+				$data['length'] = ($data['type'] === 'string' || $data['type'] === 'text') ? 255 : 10;
 			}
 
 			// Integers
-			if ($data['type'] == 'integer' || $data['type'] == 'int') {
+			if ($data['type'] === 'integer' || $data['type'] === 'int') {
 				if (empty($data['length'])) {
 					$column .= ' INT(10)';
 				} else {
@@ -366,15 +366,15 @@ class Databasic {
 				}
 
 			// Strings
-			} else if ($data['type'] == 'string' || $data['type'] == 'text' || $data['type'] == 'char' || $data['type'] == 'varchar') {
+			} else if ($data['type'] === 'string' || $data['type'] === 'text' || $data['type'] === 'char' || $data['type'] === 'varchar') {
 				if ($data['length'] <= 255) {
-					$column .= ' VARCHAR('. $data['length'] .')';
+					$column .= ' VARCHAR('. $data['length'] . ')';
 				} else {
 					$column .= ' TEXT';
 				}
 
 			// Enum
-			} else if ($data['type'] == 'enum') {
+			} else if ($data['type'] === 'enum') {
 				if (is_array($data['length']) && empty($data['enum'])) {
 					$data['enum'] = $data['length'];
 					unset($data['length']);
@@ -387,15 +387,15 @@ class Databasic {
 						$opts[] = "'". $opt ."'";
 					}
 
-					$column .= ' ENUM('. implode(', ', $opts) .')';
+					$column .= ' ENUM('. implode(', ', $opts) . ')';
 				}
 
 			// Datetime
-			} else if ($data['type'] == 'datetime' || $data['type'] == 'timestamp' || $data['type'] == 'date' || $data['type'] == 'time' || $data['type'] == 'float' || $data['type'] == 'blob') {
+			} else if ($data['type'] === 'datetime' || $data['type'] === 'timestamp' || $data['type'] === 'date' || $data['type'] === 'time' || $data['type'] === 'float' || $data['type'] === 'blob') {
 				$column .= ' '. strtoupper($data['type']);
 
 			// Year
-			} else if ($data['type'] == 'year') {
+			} else if ($data['type'] === 'year') {
 				$column .= ' YEAR(4)';
 			}
 
@@ -408,7 +408,7 @@ class Databasic {
 				}
 
 				// Default
-				if ($data['type'] == 'enum') {
+				if ($data['type'] === 'enum') {
 					if ($data['options']['default'] !== '' && in_array($data['options']['default'], $data['enum'])) {
 						$default = $data['options']['default'];
 					} else {
@@ -428,18 +428,18 @@ class Databasic {
 
 				// Keys
 				if (isset($data['key'])) {
-					if ($data['key'] == 'index') {
+					if ($data['key'] === 'index') {
 						$keys['index'][] = $field;
 
-					} else if ($data['key'] == 'primary') {
+					} else if ($data['key'] === 'primary') {
 						$keys['primary'] = $field;
 
-					} else if ($data['key'] == 'unique') {
+					} else if ($data['key'] === 'unique') {
 						$keys['unique'] = $field;
 					}
 				}
 
-				$sql[] = $column .',';
+				$sql[] = $column . ',';
 			}
 		}
 
@@ -448,7 +448,7 @@ class Databasic {
 			foreach ($keys as $key => $field) {
 				$keySql = '';
 
-				if ($key == 'index') {
+				if ($key === 'index') {
 					foreach ($field as $i => $index) {
 						$keySql .= "\tKEY ". $this->backtick($index) ." (". $this->backtick($index) .")";
 
@@ -457,10 +457,10 @@ class Databasic {
 						}
 					}
 
-				} else if ($key == 'primary') {
+				} else if ($key === 'primary') {
 					$keySql = "\tPRIMARY KEY (". $this->backtick($field) .")";
 
-				} else if ($key == 'uniqe') {
+				} else if ($key === 'uniqe') {
 					$keySql = "\tUNIQUE KEY (". $this->backtick($field) .")";
 				}
 
@@ -557,6 +557,7 @@ class Databasic {
 	 * @param string $sql
 	 * @param int $dataBit
 	 * @return mixed
+	 * @throws Exception
 	 */
 	public function execute($sql, $dataBit = null) {
 		if (empty($dataBit)) {
@@ -564,13 +565,13 @@ class Databasic {
 		}
 
 		if (!$this->sql->ping()) {
-			throw new Exception(sprintf('%s(): Your database connection has been lost!', __METHOD__));
+			throw new Exception('Your database connection has been lost!');
 		}
 
 		$result = $this->sql->query($sql);
 
 		if ($result === false) {
-			$failure = $this->sql->error .' ('. $this->sql->errno .')';
+			$failure = $this->sql->error . ' (' . $this->sql->errno . ')';
 		} else {
 			++$this->_executed;
 		}
@@ -581,8 +582,8 @@ class Databasic {
 			$this->_queries[] = array(
 				'statement' => $sql,
 				'executed'  => isset($failure) ? $failure : 'true',
-				'took'		=> $seconds .' seconds',
-				'affected'	=> $this->getAffected() .' rows'
+				'took'		=> $seconds . ' seconds',
+				'affected'	=> $this->getAffected() . ' rows'
 			);
 		}
 
@@ -593,7 +594,7 @@ class Databasic {
 	 * Fetches the first row from the query.
 	 *
 	 * @access public
-	 * @param result $query
+	 * @param resource $query
 	 * @return array
 	 */
 	public function fetch($query) {
@@ -606,7 +607,7 @@ class Databasic {
 	 * Fetches all rows from the query.
 	 *
 	 * @access public
-	 * @param result $query
+	 * @param resource $query
 	 * @return array
 	 */
 	public function fetchAll($query) {
@@ -642,7 +643,7 @@ class Databasic {
 	 *
 	 * @access public
 	 * @param string $db
-	 * @return instance
+	 * @return Databasic
 	 * @static
 	 */
 	public static function getInstance($db = 'default') {
@@ -699,7 +700,7 @@ class Databasic {
 	 * Optimizes and cleans all the overhead in the database.
 	 *
 	 * @access public
-	 * @param string $useDb
+	 * @param string $tableName
 	 * @return mixed
 	 */
 	public function optimize($tableName = null) {
@@ -721,7 +722,7 @@ class Databasic {
 	 *
 	 * @access public
 	 * @param string $finder
-	 * @param string $tableName
+	 * @param string|array $tableName
 	 * @param array $options - fields, conditions, order, group, limit, offset
 	 * @return mixed
 	 */
@@ -742,7 +743,7 @@ class Databasic {
 					$as = $table;
 				}
 
-				$tables[] = $this->backtick($table) .' AS '. $this->backtick(ucfirst($as));
+				$tables[] = $this->backtick($table) . ' AS ' . $this->backtick(ucfirst($as));
 				$tableNames[] = $this->backtick(ucfirst($as));
 			}
 
@@ -764,7 +765,7 @@ class Databasic {
 					$fields = array();
 
 					foreach ($tableNames as $tableName) {
-						$fields[] = $tableName .'.*';
+						$fields[] = $tableName . '.*';
 					}
 
 					$fields = implode(', ', $fields);
@@ -778,7 +779,7 @@ class Databasic {
 
 		// Conditions
 		if (!empty($options['conditions'])) {
-			$sql .= ' WHERE '. $this->_formatConditions($this->_buildConditions($dataBit, $options['conditions']));
+			$sql .= ' WHERE ' . $this->_formatConditions($this->_buildConditions($dataBit, $options['conditions']));
 		}
 
 		// Order
@@ -792,11 +793,11 @@ class Databasic {
 
 				$order = implode(', ', $orders);
 
-			} else if ($options['order'] == 'RAND()') {
+			} else if ($options['order'] === 'RAND()') {
 				$order = $options['order'];
 			}
 
-			$sql .= ' ORDER BY '. $order;
+			$sql .= ' ORDER BY ' . $order;
 		}
 
 		// Group
@@ -814,11 +815,11 @@ class Databasic {
 				$group = $this->backtick($options['group']);
 			}
 
-			$sql .= ' GROUP BY '. $group;
+			$sql .= ' GROUP BY ' . $group;
 		}
 
 		// Limit, offset
-		if ($finder == 'first') {
+		if ($finder === 'first') {
 			$options['limit'] = 1;
 			$options['offset'] = null;
 		}
@@ -848,7 +849,7 @@ class Databasic {
 					}
 				}
 
-			} else if ($finder == 'first') {
+			} else if ($finder === 'first') {
 				return $this->fetch($query);
 
 			} else {
@@ -899,7 +900,7 @@ class Databasic {
 
 		if ($query = $this->execute('SHOW TABLES', $this->_startLoadTime())) {
 			while ($table = $this->fetchAll($query)) {
-				$tables[] = $table['Tables_in_'. $this->_db['database']];
+				$tables[] = $table['Tables_in_' . $this->_db['database']];
 			}
 		}
 
@@ -925,7 +926,7 @@ class Databasic {
 	 * @param array $columns
 	 * @param array $conditions
 	 * @param int $limit
-	 * @return result
+	 * @return array|object
 	 */
 	public function update($tableName, array $columns, array $conditions, $limit = 1) {
 		$dataBit = $this->_startLoadTime();
@@ -951,7 +952,7 @@ class Databasic {
 	 * @param int $dataBit
 	 * @param array $columns
 	 * @param string $type
-	 * @return void
+	 * @return array
 	 */
 	protected function _buildFields($dataBit, $columns, $type = 'select') {
 		switch ($type) {
@@ -974,14 +975,14 @@ class Databasic {
 				foreach ($columns as $tableAlias => $column) {
 					if (is_string($tableAlias) && is_array($column)) {
 						foreach ($column as $i => $col) {
-							$column[$i] = $tableAlias .'.'. $col;
+							$column[$i] = $tableAlias . '.' . $col;
 						}
 
 						$this->_buildFields($dataBit, $column, 'select');
 					} else {
 						if (strpos(strtoupper($column), ' AS ') !== false) {
 							$parts = explode('AS', str_replace(' as ', ' AS ', $column));
-							$this->_data[$dataBit]['fields'][] = $this->backtick(trim($parts[0])) .' AS '. $this->backtick(trim($parts[1]));
+							$this->_data[$dataBit]['fields'][] = $this->backtick(trim($parts[0])) . ' AS ' . $this->backtick(trim($parts[1]));
 						} else {
 							$this->_data[$dataBit]['fields'][] = $this->backtick($column);
 						}
@@ -1000,7 +1001,7 @@ class Databasic {
 	 * @param int $dataBit
 	 * @param array $conditions
 	 * @param string $join
-	 * @return void
+	 * @return array
 	 */
 	protected function _buildConditions($dataBit, $conditions, $join = '') {
 		$data = array();
@@ -1031,11 +1032,11 @@ class Databasic {
 					$values = array();
 
 					foreach ($value as $i => $val) {
-						$key = $this->addBind($dataBit, 'where_'. $i . $column, $val);
+						$key = $this->addBind($dataBit, 'where_' . $i . $column, $val);
 						$values[] = $this->_formatType($val, $key);
 					}
 
-					$valueClean = '('. implode(', ', $values) .')';
+					$valueClean = '(' . implode(', ', $values) . ')';
 
 					if ($operator == '=') {
 						$operator = 'IN';
@@ -1046,11 +1047,11 @@ class Databasic {
 					$valueClean = '';
 
 				} else {
-					$key = $this->addBind($dataBit, 'where_'. $column, $value);
+					$key = $this->addBind($dataBit, 'where_' . $column, $value);
 					$valueClean = $this->_formatType($value, trim($key, ':'));
 				}
 
-				$data[] = $this->backtick($column) ." ". $operator ." ". $valueClean;
+				$data[] = $this->backtick($column) . " " . $operator . " " . $valueClean;
 			}
 		}
 
@@ -1063,8 +1064,8 @@ class Databasic {
 	 * Attempts to connect to the MySQL database.
 	 *
 	 * @access public
-	 * @param string $useDb
 	 * @return void
+	 * @throws Exception
 	 */
 	protected function _connect() {
 		$this->_queries = array();
@@ -1072,7 +1073,7 @@ class Databasic {
 		$this->sql = new mysqli($this->_db['server'], $this->_db['username'], $this->_db['password'], $this->_db['database']);
 
 		if (mysqli_connect_error()) {
-			trigger_error(sprintf('%s(): %s (%s)', __METHOD__, mysqli_connect_errno(), mysqli_connect_error()), E_USER_ERROR);
+			throw new Exception(sprintf('%s (%s)', mysqli_connect_errno(), mysqli_connect_error()));
 		}
 
 		unset($this->_db['password']);
@@ -1086,7 +1087,7 @@ class Databasic {
 	 * @return string
 	 */
 	protected function _encode($value) {
-		return (string) htmlentities(strip_tags($value));
+		return (string) htmlentities(strip_tags($value), ENT_COMPAT, 'UTF-8');
 	}
 
 	/**
@@ -1097,7 +1098,7 @@ class Databasic {
 	 * @return string
 	 */
 	protected function _encodeMethod($value) {
-		if (mb_strtoupper($value) == $value && mb_substr($value, -2) == '()') {
+		if (mb_strtoupper($value) == $value && mb_substr($value, -2) === '()') {
 			return (string) $value;
 		}
 
@@ -1112,7 +1113,7 @@ class Databasic {
 		$cleaned = array();
 
 		foreach ($params as $param) {
-			if (mb_substr($param, 0, 1) == "'" && mb_substr($param, -1) == "'") {
+			if (mb_substr($param, 0, 1) === "'" && mb_substr($param, -1) === "'") {
 				$param = trim($param, "'");
 
 				if (empty($param)) {
@@ -1132,7 +1133,7 @@ class Databasic {
 			$cleaned[] = $param;
 		}
 
-		return (string) $function .'('. implode(', ', $cleaned) .')';
+		return (string) $function . '(' . implode(', ', $cleaned) . ')';
 	}
 
 	/**
@@ -1145,6 +1146,8 @@ class Databasic {
 	 * @return mixed
 	 */
 	protected function _formatType($value, $column, $prefix = '') {
+		$cleanValue = null;
+
 		// NULL
 		if (($value === NULL || $value == 'NULL') && $value !== 0) {
 			$cleanValue = 'NULL';
@@ -1186,13 +1189,13 @@ class Databasic {
 
 		foreach ($conditions as $op => $clause) {
 			if (is_array($clause)) {
-				$clean[] = '('. $this->_formatConditions($clause, $op) .')';
+				$clean[] = '(' . $this->_formatConditions($clause, $op) . ')';
 			} else {
 				$clean[] = $clause;
 			}
 		}
 
-		return implode(' '. $operator .' ', $clean);
+		return implode(' ' . $operator . ' ', $clean);
 	}
 
 	/**
