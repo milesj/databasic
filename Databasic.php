@@ -4,7 +4,7 @@
  *
  * A wrapper class for accessing, abstracting and manipulating a MySQL database.
  *
- * @version		2.6
+ * @version		2.6.1
  * @author		Miles Johnson - http://milesj.me
  * @copyright	Copyright 2006-2011, Miles Johnson, Inc.
  * @license		http://opensource.org/licenses/mit-license.php - Licensed under The MIT License
