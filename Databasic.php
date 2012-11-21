@@ -12,7 +12,7 @@ use \Exception;
 /**
  * A wrapper class for accessing, abstracting and manipulating a MySQL database.
  *
- * @version	2.6.1
+ * @version	3.0.0
  * @package	mjohnson.databasic
  */
 class Databasic {
