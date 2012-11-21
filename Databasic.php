@@ -1,16 +1,20 @@
 <?php
 /**
- * Databasic
- *
- * A wrapper class for accessing, abstracting and manipulating a MySQL database.
- *
- * @version		2.6.1
- * @author		Miles Johnson - http://milesj.me
- * @copyright	Copyright 2006-2011, Miles Johnson, Inc.
- * @license		http://opensource.org/licenses/mit-license.php - Licensed under The MIT License
+ * @copyright	Copyright 2006-2012, Miles Johnson - http://milesj.me
+ * @license		http://opensource.org/licenses/mit-license.php - Licensed under the MIT License
  * @link		http://milesj.me/code/php/databasic
  */
 
+namespace mjohnson\databasic;
+
+use \Exception;
+
+/**
+ * A wrapper class for accessing, abstracting and manipulating a MySQL database.
+ *
+ * @version	2.6.1
+ * @package	mjohnson.databasic
+ */
 class Databasic {
 
 	/**
@@ -162,7 +166,7 @@ class Databasic {
 	 * @return string
 	 */
 	public function bind($sql, array $params, $clean = true) {
-		if (!empty($params)) {
+		if ($params) {
 			foreach ($params as $param => $value) {
 				if (is_string($param)) {
 					$param = ':'. trim($param, ':') .':';
@@ -298,7 +302,7 @@ class Databasic {
 	 * @throws Exception
 	 */
 	public function create($tableName, array $schema, array $settings = array()) {
-		if (empty($schema)) {
+		if (!$schema) {
 			throw new Exception('Schema is required to create tables.');
 		}
 
@@ -444,7 +448,7 @@ class Databasic {
 		}
 
 		// Add keys
-		if (!empty($keys)) {
+		if ($keys) {
 			foreach ($keys as $key => $field) {
 				$keySql = '';
 
@@ -464,7 +468,7 @@ class Databasic {
 					$keySql = "\tUNIQUE KEY (". $this->backtick($field) .")";
 				}
 
-				if ($key != 'index' && count($keys) != 1) {
+				if ($key !== 'index' && count($keys) != 1) {
 					$keySql .= ',';
 				}
 
@@ -601,6 +605,8 @@ class Databasic {
 		while ($row = $this->fetchAll($query)) {
 			return $row;
 		}
+
+		return null;
 	}
 
 	/**
@@ -784,6 +790,8 @@ class Databasic {
 
 		// Order
 		if (!empty($options['order'])) {
+			$order = '';
+
 			if (is_array($options['order'])) {
 				$orders = array();
 
@@ -1235,6 +1243,8 @@ class Databasic {
 
 			return ($time - $start);
 		}
+
+		return null;
 	}
 
 	/**

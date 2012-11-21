@@ -4,7 +4,8 @@ A wrapper class for accessing, abstracting and manipulating a MySQL database.
 
 ## Requirements ##
 
-* PHP 5.2.x
+* PHP 5.3+ - v3.x
+* PHP 5.2+ - v2.x
 * MySQLi Extension - http://php.net/manual/book.mysqli.php
 
 ## Features ##

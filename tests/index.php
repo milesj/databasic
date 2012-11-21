@@ -1,12 +1,7 @@
 <?php
 /**
- * Databasic
- *
- * A wrapper class for accessing, abstracting and manipulating a MySQL database.
- * 
- * @author		Miles Johnson - http://milesj.me
- * @copyright	Copyright 2006-2011, Miles Johnson, Inc.
- * @license		http://opensource.org/licenses/mit-license.php - Licensed under The MIT License
+ * @copyright	Copyright 2006-2012, Miles Johnson - http://milesj.me
+ * @license		http://opensource.org/licenses/mit-license.php - Licensed under the MIT License
  * @link		http://milesj.me/code/php/databasic
  */
 
@@ -14,16 +9,16 @@
 error_reporting(E_ALL);
 
 function debug($var) {
-    echo '<pre>'. print_r($var, true) .'</pre>';
+    echo '<pre>' . print_r($var, true) . '</pre>';
 }
 
 // Require and initialize
-include_once '../databasic/Databasic.php';
+include_once '../Databasic.php';
 
 // Store DB info and initialize
-Databasic::store('default', 'localhost', 'test', 'root', '');
+\mjohnson\databasic\Databasic::store('default', 'localhost', 'test', 'root', '');
 
-$db = Databasic::getInstance();
+$db = \mjohnson\databasic\Databasic::getInstance();
 $id = null;
 
 // Include our DB calls
