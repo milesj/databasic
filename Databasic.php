@@ -8,6 +8,7 @@
 namespace mjohnson\databasic;
 
 use \Exception;
+use \mysqli;
 
 /**
  * A wrapper class for accessing, abstracting and manipulating a MySQL database.
