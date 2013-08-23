@@ -15,7 +15,7 @@
 		"php": ">=5.3"
 	},
 	"support": {
-		"source": "https://github.com/milesj/php-databasic"
+		"source": "https://github.com/milesj/databasic"
 	},
 	"autoload": {
 		"psr-0": { "mjohnson\\databasic": "" }
